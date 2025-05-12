@@ -38,4 +38,8 @@ You are free to use, share, and adapt this work — for non-commercial purposes 
 For collaboration, feedback or educational partnerships, contact:[rostuslav.sapsai@gmail.com] Visit our website : https://sites.google.com/view/proptest/home?authuser=0
 
 
-​
+​Libraries:
+acs712 library: https://github.com/RobTillaart/ACS712
+HX711-master library: https://github.com/bogde/HX711
+SparkFun_MMA8452Q_Arduino_Library_master library: https://github.com/sparkfun/SparkFun_MMA8452Q_Arduino_Library
+Wire library: https://docs.arduino.cc/language-reference/en/functions/communication/wire/
