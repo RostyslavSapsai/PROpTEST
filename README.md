@@ -1,3 +1,8 @@
+> **Актуальна документація — 15 вересня 2026 року:** [PROpTEST: стан, інструкція користувача, обладнання, архітектура, протокол і план v2](docs/current/README.md).
+>
+> Файли коду в корені цього репозиторію є історичними Arduino-скетчами. Описана в документації локальна Windows-програма Engineering v0.14 та прошивка Uno PT:2.2 цією публікацією не додаються. Wi-Fi, ESP32-S3, Matek і чотири моторні канали — наступний етап, не готові функції поточної версії. Звук зараз вимірюється як ADC, не калібровані dB SPL.
+
+---
 Propeller Testing Device
 
 A modular device designed to measure key physical characteristics of propellers, such as thrust, sound, current, and vibration. This project aims to simplify the measuring of propeller technical characteristics and support STEM education and allow students to explore aerodynamics and propulsion in a hands-on, interactive way.
