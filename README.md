@@ -1,50 +1,65 @@
-> **Актуальна документація — 15 вересня 2026 року:** [PROpTEST: стан, інструкція користувача, обладнання, архітектура, протокол і план v2](docs/current/README.md).
->
-> Файли коду в корені цього репозиторію є історичними Arduino-скетчами. Описана в документації локальна Windows-програма Engineering v0.14 та прошивка Uno PT:2.2 цією публікацією не додаються. Wi-Fi, ESP32-S3, Matek і чотири моторні канали — наступний етап, не готові функції поточної версії. Звук зараз вимірюється як ADC, не калібровані dB SPL.
+# PROpTEST
+
+### Стенд для випробування моторів і пропелерів
+
+PROpTEST поєднує вимірювальний стенд і програму для керування експериментами. Він допомагає досліджувати, як комбінація **мотора, пропелера та ESC** впливає на тягу, споживання струму, вібрацію та звуковий сигнал.
+
+Мета проєкту — зробити випробування зручними для розробників дронів, дослідників і навчальних лабораторій: керувати навантаженням, спостерігати за вимірами та порівнювати результати.
+
+**[Документація](docs/current/README.md)** · **[Інструкція користувача](docs/current/USER-GUIDE.md)** · **[План розвитку](docs/current/ROADMAP.md)**
+
+## Що вже є
+
+Поточна версія — **одномоторний прототип** із підключенням Arduino Uno до комп’ютера через USB. У локальній програмі PROpTEST Engineering реалізовано:
+
+- **Керування мотором:** ручне встановлення газу, дробове введення значення та обмеження максимального газу.
+- **Чотири графіки:** тяга, струм, прискорення та звуковий сигнал.
+- **Дослідження запису:** перегляд окремих точок, масштабування, вибір часового діапазону й відкриття графіків в окремих вікнах.
+- **Робота з результатами:** архів експериментів та експорт CSV.
+- **Симулятор:** окремий режим із синтетичними даними для знайомства з інтерфейсом.
+
+Звуковий канал показує сигнал ADC, а не калібрований рівень гучності в dB SPL. Прискорення XYZ включає гравітацію й не є готовим показником RMS вібрації. Точність вимірювань і захисні функції потребують окремої перевірки на конкретному стенді.
+
+## Що містить цей репозиторій
+
+| Матеріали | Призначення |
+|---|---|
+| [docs/current](docs/current/README.md) | Актуальний опис стану проєкту, обладнання, програми та наступних кроків |
+| [Code for basic version.ino](Code%20for%20basic%20version.ino) | Історичний Arduino-скетч базового прототипу |
+| [Code for advanced version.ino](Code%20for%20advanced%20version.ino) | Історичний Arduino-скетч розширеного прототипу |
+| [Libraries](Libraries) | Архіви бібліотек для історичних скетчів |
+
+**Важливо для запуску:** документація описує також локальну програму **Engineering v0.14** і прошивку **Uno PT:2.2**. Їхні актуальні вихідні файли та готова програма ще не опубліковані в цьому репозиторії. Старі скетчі в корені не відтворюють цю версію.
+
+## Документація
+
+| Розділ | Що можна знайти |
+|---|---|
+| [Поточний стан](docs/current/STATUS.md) | Реалізовані можливості, відомі обмеження та свідчення перевірок |
+| [Інструкція користувача](docs/current/USER-GUIDE.md) | Підключення, проведення тесту, графіки й збереження результатів |
+| [Обладнання](docs/current/HARDWARE.md) | Компоненти, підключення датчиків і вимірювальні обмеження |
+| [Архітектура](docs/current/ARCHITECTURE.md) | Будова програми, зберігання даних та інформація для розробки |
+| [Протокол](docs/current/PROTOCOL.md) | Обмін командами й вимірами з Arduino Uno PT:2.2 |
+| [План розвитку](docs/current/ROADMAP.md) | Пріоритети переходу на наступну апаратну версію |
+| [Джерела](docs/current/SOURCES.md) | Походження технічних відомостей і матеріали для сайту |
+
+## Наступний етап — PROpTEST v2
+
+Плануємо бездротове підключення через **Wi-Fi** та розширення до **чотирьох незалежних моторних каналів**. Окремий напрям — вимірювання напруги й струму для дослідження акумуляторів під навантаженням: потужності, витраченої енергії та тривалості роботи.
+
+Це план розвитку: нові компоненти замовлені, але інтеграція та перевірка цієї конфігурації ще не завершені. Перший пріоритет — надійність вимірювань і керування; розширення додаються поступово.
+
+## Співпраця
+
+Проєкт відкритий до обговорення випробувань, розвитку стенда та його застосування в освіті.
+
+**Контакт:** [rostuslav.sapsai@gmail.com](mailto:rostuslav.sapsai@gmail.com)  
+**Сайт:** [PROpTEST](https://sites.google.com/view/proptest/home)
+
+## Ліцензія
+
+Матеріали репозиторію поширюються за [Creative Commons Attribution–NonCommercial–ShareAlike 4.0 International](LICENSE): із зазначенням авторства, для некомерційного використання та зі збереженням тієї самої ліцензії для похідних матеріалів.
 
 ---
-Propeller Testing Device
 
-A modular device designed to measure key physical characteristics of propellers, such as thrust, sound, current, and vibration. This project aims to simplify the measuring of propeller technical characteristics and support STEM education and allow students to explore aerodynamics and propulsion in a hands-on, interactive way.
-
-🔧 Features
-
-Real-time measurement of thrust, sound, current, and vibration
-Modular 3D-printed frame
-Custom ESC + brushless motor integration
-Easy sensor configuration and data logging
-Educational methodology materials (in progress)
-
-🎓 Educational Use
-
-This device is intended for use in physics and engineering classrooms to explore forces, efficiency, and electronics. Methodological recommendations are being developed for alignment with school curricula.
-Planned expansions include:
-Mobile application for live monitoring
-Web platform for result tracking and comparison
-Multi-language support
-
-🧪 Technologies Used
-
-Sound sensor, ​
-Current sensor, ​
-Controller, ​
-Accelerometer, ​
-Drone motor (low power, mechanical), ​
-Battery/power supply,​
-motor driver for the first type of kit (for educational purposes) and for the second (for testing propellers for further use):​
-ESC is used instead of the motor driver,​
-Brushless motor is used​
-
-🌐 License
-
-This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.Read more: http://creativecommons.org/licenses/by-nc-sa/4.0/
-You are free to use, share, and adapt this work — for non-commercial purposes only — and must attribute the original authors.
-📬 Contact
-For collaboration, feedback or educational partnerships, contact:[rostuslav.sapsai@gmail.com] Visit our website : https://sites.google.com/view/proptest/home?authuser=0
-
-
-​Libraries:
-acs712 library: https://github.com/RobTillaart/ACS712
-HX711-master library: https://github.com/bogde/HX711
-SparkFun_MMA8452Q_Arduino_Library_master library: https://github.com/sparkfun/SparkFun_MMA8452Q_Arduino_Library
-Wire library: https://docs.arduino.cc/language-reference/en/functions/communication/wire/
+*Опис оновлено 16 вересня 2026 року. Документація поточного етапу — станом на 15 вересня 2026 року.*
