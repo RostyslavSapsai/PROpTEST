@@ -1,0 +1,141 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:PropTest.Desktop" xmlns:core="using:PropTest.Core" x:Class="PropTest.Desktop.MainWindow" x:DataType="local:MainViewModel" Title="PROpTEST v2 · Desktop 0.4.5" Width="1220" Height="850" MinWidth="960" MinHeight="680">
+ <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+  <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+   <StackPanel><TextBlock Text="PROpTEST" FontSize="28" FontWeight="Bold"/><TextBlock Text="v2 · Desktop 0.4.5 · стенд тяги" Classes="muted"/></StackPanel>
+   <Border Grid.Column="1" Background="#FFF1DA" CornerRadius="6" Padding="16,10" VerticalAlignment="Center"><TextBlock Text="{Binding SourceLabel}" Foreground="#85520C" FontWeight="SemiBold"/></Border>
+  </Grid>
+  <TabControl x:Name="Tabs" Grid.Row="1">
+   <TabItem Header="Експеримент">
+
+     <Grid ColumnDefinitions="260,*" Margin="0,14,0,0">
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0"><Border Classes="card" Padding="12" VerticalAlignment="Top">
+       <StackPanel Spacing="10">
+        <TextBlock Text="Ручний тест" FontSize="20" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="#24756A" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding DeviceStatus}" Classes="muted" FontSize="12"/><TextBlock Text="{Binding SensorSummary}" IsVisible="{Binding HasSensorSummary}" TextWrapping="Wrap" Foreground="#A53F16" FontSize="12"/>
+        <Button x:Name="ConnectButton" Content="{Binding ConnectionButtonText}" Click="OnConnect" IsEnabled="{Binding CanConnect}" HorizontalAlignment="Stretch"/>
+        <Button Content="Керування мотором" Click="OnOpenS3Control" IsVisible="{Binding CanOpenBoardWeb}" HorizontalAlignment="Stretch"/>
+        <Button x:Name="StartButton" Content="Почати тест" Classes="primary" Click="OnStart" IsEnabled="{Binding CanStart}" HorizontalAlignment="Stretch"/><Separator/>
+        <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Заданий газ" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="{Binding ThrottleText}" FontSize="26" FontWeight="Bold"/></Grid>
+        <Grid ColumnDefinitions="*,Auto"><NumericUpDown x:Name="ThrottleInput" TextAlignment="Left" VerticalContentAlignment="Center" Value="{Binding ThrottleEntry}" Minimum="0" Maximum="{Binding SliderMaximum}" Increment="0.1" FormatString="0.0" IsEnabled="{Binding IsRunning}"/><Button Grid.Column="1" Content="6%" Margin="6,0,0,0" Click="OnStartThrottle" IsEnabled="{Binding CanSetStartThrottle}" ToolTip.Tip="Перейти до 6% — спостереженого порогу запуску цього мотора. Газ задає команду ESC, а не оберти."/></Grid><Grid Height="110"><Slider HorizontalAlignment="Center" Width="64" x:Name="ThrottleSlider" Orientation="Vertical" Minimum="0" Maximum="{Binding SliderMaximum}" TickFrequency="{Binding SliderTickFrequency}" TickPlacement="Outside" IsSnapToTickEnabled="False" Value="{Binding Throttle}" IsEnabled="{Binding IsRunning}"/></Grid><CheckBox Content="Обмежувати газ" IsChecked="{Binding LimitEnabled}" IsEnabled="{Binding CanConfigure}"/><Grid ColumnDefinitions="*,140"><TextBlock Text="Ліміт, %" VerticalAlignment="Center"/><NumericUpDown Grid.Column="1" Value="{Binding Limit}" Minimum="1" Maximum="100" FormatString="0" IsEnabled="{Binding CanConfigure}"/></Grid>
+        <TextBlock Text="Stop унизу вікна доступний у всіх вкладках." Classes="muted" FontSize="12"/>
+        <Expander Header="Аварійна зупинка" HorizontalAlignment="Stretch"><StackPanel Spacing="8" IsEnabled="{Binding CanConfigure}"><TextBlock Text="За різкою зміною тяги" TextWrapping="Wrap"/><ToggleSwitch OnContent="Увімкнено" OffContent="Вимкнено" IsChecked="{Binding ThrustGuardEnabled}"/><TextBlock Text="Стрибок, г"/><NumericUpDown Value="{Binding ThrustJumpGrams}" Minimum="1" Maximum="100000" FormatString="0"/><TextBlock Text="Стрибок, % від тяги"/><NumericUpDown Value="{Binding ThrustJumpPercent}" Minimum="1" Maximum="1000" FormatString="0"/><TextBlock Text="Зупинка за двох поспіль відхилень, більших за обидва пороги. Після зміни газу — пауза 1,5 с. Це контроль через ПК; пороги потребують перевірки на стенді." Classes="muted" FontSize="11"/></StackPanel></Expander><Expander Header="Налаштування тесту" HorizontalAlignment="Stretch">
+        <StackPanel Spacing="8" IsEnabled="{Binding CanConfigure}">
+         <TextBlock Text="Назва тесту" Classes="muted"/><TextBox Text="{Binding TestName}" MaxLength="120"/>
+         <TextBlock Text="Інтервал вимірів, мс" Classes="muted"/><NumericUpDown Value="{Binding Interval}" Minimum="50" Maximum="2000" Increment="50" FormatString="0"/>
+         
+         <TextBlock Text="Максимальний час, с" Classes="muted"/><NumericUpDown Value="{Binding Duration}" Minimum="1" Maximum="7200" FormatString="0"/>
+        </StackPanel>
+        </Expander>
+        
+        <TextBlock Text="{Binding ConnectionWarning}" TextWrapping="Wrap" Classes="muted" FontSize="11"/>
+       </StackPanel>
+      </Border></ScrollViewer><ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"><StackPanel Spacing="12">
+       <local:MotorOverview x:Name="MotorsOverview"/>
+       <Expander x:Name="LegacyCharts" Header="Графіки попереднього одномоторного режиму" HorizontalAlignment="Stretch"><StackPanel Spacing="12">
+       <Grid ColumnDefinitions="*,*,*,*">
+        <Border Classes="card" Padding="12" Margin="0,0,8,0"><StackPanel><TextBlock Text="Тяга" Classes="muted"/><TextBlock Text="{Binding ThrustText}" FontSize="21" FontWeight="SemiBold"/></StackPanel></Border>
+        <Border Grid.Column="1" Classes="card" Padding="12" Margin="0,0,8,0"><StackPanel><TextBlock Text="Струм" Classes="muted"/><TextBlock Text="{Binding CurrentText}" FontSize="21" FontWeight="SemiBold"/></StackPanel></Border>        <Border Grid.Column="2" Classes="card" Padding="12" Margin="0,0,8,0" ToolTip.Tip="Амплітуда сигналу ADC; не вимір децибелів"><StackPanel><TextBlock Text="Звук" Classes="muted"/><TextBlock Text="{Binding SoundText}" FontSize="21" FontWeight="SemiBold"/></StackPanel></Border>
+        <Border Grid.Column="3" Classes="card" Padding="12" ToolTip.Tip="Модуль прискорення XYZ, включно з гравітацією; не RMS вібрації"><StackPanel><TextBlock Text="Вібрація · |a|" Classes="muted"/><TextBlock Text="{Binding VibrationText}" FontSize="21" FontWeight="SemiBold"/></StackPanel></Border>
+       </Grid>
+<TextBlock Text="ЛКМ — виділити ділянку · ПКМ — пересунути · Ctrl+Z — попередній масштаб · Ctrl + коліщатко — масштаб · подвійний клік — авто. Коліщатко — прокручування. «Авто» показує весь запис." Classes="muted" FontSize="12"/><ContentControl x:Name="ChartRangeHost"/>       <StackPanel Spacing="12">
+ <Border Classes="card" Padding="12" Margin="0"><StackPanel><Grid ColumnDefinitions="*,Auto"><TextBlock Text="Тяга, г" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"><Button Content="Авто" Padding="10,8" ToolTip.Tip="Показати весь запис і оновлювати масштаб автоматично" Tag="ThrustChart" Click="OnResetChart"/><Button Content="↗ Окремо" Tag="ThrustChart" Click="OnOpenChart"/></StackPanel></Grid><local:TelemetryChart x:Name="ThrustChart" Height="250"/></StackPanel></Border>
+ <Border Classes="card" Padding="12" Margin="0"><StackPanel><Grid ColumnDefinitions="*,Auto"><TextBlock Text="Струм, А" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"><Button Content="Авто" Padding="10,8" ToolTip.Tip="Показати весь запис і оновлювати масштаб автоматично" Tag="CurrentChart" Click="OnResetChart"/><Button Content="↗ Окремо" Tag="CurrentChart" Click="OnOpenChart"/></StackPanel></Grid><local:TelemetryChart x:Name="CurrentChart" Channel="Current" Height="250"/></StackPanel></Border>
+ <Border Classes="card" Padding="12" Margin="0"><StackPanel><Grid ColumnDefinitions="*,Auto"><TextBlock Text="Вібрація · прискорення XYZ, g" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"><Button Content="Авто" Padding="10,8" ToolTip.Tip="Показати весь запис і оновлювати масштаб автоматично" Tag="VibrationChart" Click="OnResetChart"/><Button Content="↗ Окремо" Tag="VibrationChart" Click="OnOpenChart"/></StackPanel></Grid><local:TelemetryChart x:Name="VibrationChart" Channel="Vibration" Height="250"/><TextBlock Text="X — вперед/назад (помаранчевий) · Y — вверх/вниз (зелений) · Z — вправо/вліво (синій)" FontSize="10" Classes="muted"/></StackPanel></Border>
+ <Border Classes="card" Padding="12" Margin="0"><StackPanel><Grid ColumnDefinitions="*,Auto"><TextBlock Text="Звук" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"><Button Content="Авто" Padding="10,8" ToolTip.Tip="Показати весь запис і оновлювати масштаб автоматично" Tag="SoundChart" Click="OnResetChart"/><Button Content="↗ Окремо" Tag="SoundChart" Click="OnOpenChart"/></StackPanel></Grid><local:TelemetryChart x:Name="SoundChart" Channel="Sound" Height="250"/><TextBlock Text="ADC — розмах сигналу мікрофона за 50 мс (PT:2.1+). Це не децибели. Рівень звуку SPL ще не калібрований." FontSize="10" Classes="muted"/></StackPanel></Border>
+</StackPanel><TextBlock Text="{Binding CountText}" FontWeight="SemiBold"/>
+       
+      </StackPanel></Expander></StackPanel></ScrollViewer></Grid></TabItem>
+   <TabItem Header="Архів">
+    <Grid ColumnDefinitions="300,*" RowDefinitions="Auto,*" Margin="0,14,0,0">
+     <StackPanel Orientation="Horizontal" Spacing="10" Grid.ColumnSpan="2" Margin="0,0,0,12"><Button Content="Оновити" Click="OnArchive"/><Button Content="Експорт CSV" Click="OnExport" IsEnabled="{Binding HasSelection}"/></StackPanel>
+     <ListBox Grid.Row="1" ItemsSource="{Binding Archive}" SelectedItem="{Binding SelectedRun}" Margin="0,0,16,0">
+      <ListBox.ItemTemplate><DataTemplate x:DataType="core:RunInfo"><StackPanel Margin="4,8" Spacing="4"><TextBlock Text="{Binding Settings.Name}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding StartedLocal, StringFormat={}{0:dd.MM.yyyy HH:mm}}" Classes="muted"/><TextBlock Text="{Binding SampleCount, StringFormat={}{0} вимірів}"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
+     </ListBox>
+     <ScrollViewer Grid.Row="1" Grid.Column="1"><StackPanel Spacing="12"><Border Classes="card"><TextBlock Text="{Binding ArchiveSummary}" TextWrapping="Wrap"/></Border><ContentControl x:Name="ArchiveRangeHost"/><Border Classes="card" Padding="12"><StackPanel><Grid ColumnDefinitions="*,Auto"><TextBlock Text="Тяга, г" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"><Button Content="Авто" Padding="10,8" ToolTip.Tip="Показати весь запис і оновлювати масштаб автоматично" Tag="ArchiveThrust" Click="OnResetChart"/><Button Content="↗ Окремо" Tag="ArchiveThrust" Click="OnOpenChart"/></StackPanel></Grid><local:TelemetryChart x:Name="ArchiveThrust" Height="250"/></StackPanel></Border><Border Classes="card"><StackPanel><Grid ColumnDefinitions="*,Auto"><TextBlock Text="Струм, А" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"><Button Content="Авто" Padding="10,8" ToolTip.Tip="Показати весь запис і оновлювати масштаб автоматично" Tag="ArchiveCurrent" Click="OnResetChart"/><Button Content="↗ Окремо" Tag="ArchiveCurrent" Click="OnOpenChart"/></StackPanel></Grid><local:TelemetryChart x:Name="ArchiveCurrent" Current="True" Height="250"/></StackPanel></Border><Border Classes="card"><StackPanel><Grid ColumnDefinitions="*,Auto"><TextBlock Text="Вібрація · XYZ, g" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"><Button Content="Авто" Padding="10,8" ToolTip.Tip="Показати весь запис і оновлювати масштаб автоматично" Tag="ArchiveVibration" Click="OnResetChart"/><Button Content="↗ Окремо" Tag="ArchiveVibration" Click="OnOpenChart"/></StackPanel></Grid><local:TelemetryChart x:Name="ArchiveVibration" Channel="Vibration" Height="250"/></StackPanel></Border><Border Classes="card"><StackPanel><Grid ColumnDefinitions="*,Auto"><TextBlock Text="Звук" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"><Button Content="Авто" Padding="10,8" ToolTip.Tip="Показати весь запис і оновлювати масштаб автоматично" Tag="ArchiveSound" Click="OnResetChart"/><Button Content="↗ Окремо" Tag="ArchiveSound" Click="OnOpenChart"/></StackPanel></Grid><local:TelemetryChart x:Name="ArchiveSound" Channel="Sound" Height="250"/></StackPanel></Border></StackPanel></ScrollViewer>
+    </Grid>
+   </TabItem>
+   <TabItem Header="Підключення">
+    <ScrollViewer><StackPanel Spacing="16" Margin="0,14,0,0">
+     <Border Classes="card"><StackPanel Spacing="12">
+      <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Підключення плати" FontSize="22" FontWeight="SemiBold"/><Button Grid.Column="1" Content="i" FontSize="21" FontWeight="SemiBold" Padding="0" VerticalContentAlignment="Center" Click="OnConnectionHelp" Width="36" Height="36" CornerRadius="18" HorizontalContentAlignment="Center" ToolTip.Tip="Як підключити плату" AutomationProperties.Name="Інструкція підключення"/></Grid>
+      <StackPanel Orientation="Horizontal" Spacing="12">
+       <RadioButton Content="USB · кабель" GroupName="ConnectionMode" IsChecked="{Binding UsbSelected}" IsEnabled="{Binding CanChooseDevice}"/>
+       <RadioButton Content="Wi-Fi · мережа" GroupName="ConnectionMode" IsChecked="{Binding IsWifi}" IsEnabled="{Binding CanChooseDevice}"/>
+      </StackPanel>
+      <TextBlock Text="{Binding ConnectedBoardLabel}" Foreground="#24756A" FontWeight="SemiBold"/>
+      <TextBlock Text="Для зміни способу підключення спочатку натисніть «Відключити»." Classes="muted" FontSize="12"/>
+      <StackPanel Spacing="10" IsVisible="{Binding IsUsbMode}">
+       <TextBlock Text="Підключіть ESP32 або Arduino кабелем. Програма знайде плату автоматично." TextWrapping="Wrap"/>
+       <SelectableTextBlock Text="{Binding DeviceStatus}" TextWrapping="Wrap"/>
+       <Expander Header="Обрати USB-порт вручну" HorizontalAlignment="Stretch"><StackPanel Spacing="10">
+        <CheckBox Content="Показати всі системні порти" IsChecked="{Binding ShowAllPorts}" IsEnabled="{Binding CanChooseDevice}"/>
+        <StackPanel Orientation="Horizontal" Spacing="12"><ComboBox Width="170" ItemsSource="{Binding PortNames}" SelectedItem="{Binding SelectedPort}" IsEnabled="{Binding CanChooseDevice}"/><Button Content="Оновити список" Click="OnPorts" IsEnabled="{Binding CanChooseDevice}"/></StackPanel>
+       </StackPanel></Expander>
+      </StackPanel>
+      <StackPanel Spacing="10" IsVisible="{Binding IsWifi}">
+       <local:BoardPickerControl x:Name="BoardsPanel" Width="460" HorizontalAlignment="Left"/>
+       <TextBlock Text="Плата й ноутбук мають бути в одній мережі. Інтернет залишається доступним." TextWrapping="Wrap"/>
+
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding IsUsbMode}"><Button Content="{Binding ConnectionButtonText}" Click="OnConnect" IsEnabled="{Binding CanConnect}"/><Button Content="Відключити" Click="OnDisconnect" IsEnabled="{Binding CanConfigure}"/></StackPanel>
+
+     </StackPanel></Border>
+     <Border Classes="card"><StackPanel Spacing="10">
+      <TextBlock Text="Підключити плату до роутера" FontSize="19" FontWeight="SemiBold"/>
+      <SelectableTextBlock Text="{Binding HomeNetworkStatus}" TextWrapping="Wrap"/>
+     <Expander Header="Wi-Fi через роутер — зі збереженням інтернету" HorizontalAlignment="Stretch">
+      <StackPanel Spacing="10" Margin="0,12,0,0">
+       <SelectableTextBlock Text="Один раз підключіть плату через USB. Введіть дані мережі 2,4 ГГц вашого роутера або точки доступу телефона. Ноутбук може залишатися на 5 ГГц того самого роутера. Пароль зберігатиметься на платі." TextWrapping="Wrap"/>
+       <TextBox Text="{Binding HomeSsid}" Watermark="Назва мережі 2,4 ГГц (SSID)" MaxLength="32"/>
+       <Grid ColumnDefinitions="*,Auto">
+        <TextBox x:Name="HomePasswordInput" Text="{Binding HomePassword}" PasswordChar="{Binding HomePasswordChar}" Watermark="Пароль мережі роутера" MaxLength="63"/>
+        <ToggleButton Grid.Column="1" Margin="8,0,0,0" IsChecked="{Binding ShowHomePassword}" ToolTip.Tip="Показати або приховати пароль">
+         <StackPanel Orientation="Horizontal" Spacing="8"><Path Width="20" Height="16" Stretch="Uniform" Stroke="#556274" StrokeThickness="1.6" Data="M1,8 Q10,-3 19,8 Q10,19 1,8 M13,8 A3,3 0 1 1 7,8 A3,3 0 1 1 13,8"/><TextBlock Text="{Binding PasswordVisibilityText}"/></StackPanel>
+        </ToggleButton>
+       </Grid>
+       <Button Content="Зберегти мережу на платі" Click="OnConfigureHomeWifi" IsEnabled="{Binding CanConfigureNetwork}" HorizontalAlignment="Left"/>
+       <SelectableTextBlock Text="Дочекайтеся повідомлення з адресою плати. Потім натисніть «Відключити» або від’єднайте USB-кабель і подайте живлення від павербанка. Виберіть Wi-Fi та «Підключити». Після налаштування плату можна живити від павербанка." TextWrapping="Wrap"/>
+      </StackPanel>
+     </Expander>
+     </StackPanel></Border>
+     <Expander Header="Додатково · симулятор і технічні відомості" HorizontalAlignment="Stretch"><StackPanel Spacing="10">
+      <Button Content="Сервісне керування та оновлення" Click="OnOpenS3Control" IsVisible="{Binding CanOpenBoardWeb}" HorizontalAlignment="Left"/>
+      <SelectableTextBlock Text="{Binding SavedAccess}" TextWrapping="Wrap"/>
+      <TextBox Text="{Binding WifiHost}" IsReadOnly="{Binding !CanEditWifiHost}" Watermark="Адреса плати"/>
+      <Expander Header="Пряме підключення до Wi-Fi плати"><SelectableTextBlock Text="{Binding WifiDetails}" TextWrapping="Wrap"/></Expander>
+      <CheckBox Content="Симулятор (синтетичні дані)" IsChecked="{Binding IsSimulation}" IsEnabled="{Binding CanChooseDevice}"/>
+      <Button Content="Симулювати обрив" Click="OnBreak" IsVisible="{Binding IsSimulation}" IsEnabled="{Binding IsRunning}"/>
+      <SelectableTextBlock Text="{Binding FirmwareInfo}" TextWrapping="Wrap"/>
+      <SelectableTextBlock Text="{Binding ConnectionWarning}" TextWrapping="Wrap"/>
+      <SelectableTextBlock Text="{Binding DataPath}" TextWrapping="Wrap"/>
+     </StackPanel></Expander>
+    </StackPanel></ScrollViewer>
+   </TabItem>
+  </TabControl>
+  <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,14,0,0">
+   <Border Background="#E1E7EF" Padding="12" CornerRadius="6" Margin="0,0,12,0"><TextBlock Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center"/></Border>
+   <Button Grid.Column="1" x:Name="StopButton" Content="■  STOP · зупинити" Classes="stop" Click="OnStop" MinWidth="200"/>
+  </Grid>
+ </Grid>
+</Window>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

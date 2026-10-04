@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user
+
+firmware/**/build/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
