@@ -18,6 +18,8 @@ public sealed class MotorOverview : UserControl
     readonly StackPanel motorDetails = new() { Spacing=10 };
     readonly DroneDrawing drawing;
     readonly Grid diagramGrid;
+    readonly List<Viewbox> cardViews = new();
+    readonly TextBlock totalCurrent=new(), totalSound=new();
     readonly TextBlock note = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = Brush.Parse("#596779") };
     string source = "";
     public Action Stop { get; set; } = () => { };
@@ -25,7 +27,7 @@ public sealed class MotorOverview : UserControl
     public MotorOverview()
     {
         drawing = new DroneDrawing(OpenMotor) { Name = "DroneDiagram", Height = 340, VerticalAlignment = VerticalAlignment.Center };
-        var grid = diagramGrid = new Grid { MaxWidth = 1000, HorizontalAlignment = HorizontalAlignment.Center, ColumnDefinitions = new ColumnDefinitions("160,*,160"), RowDefinitions = new RowDefinitions("*,*") };
+        var grid = diagramGrid = new Grid { MaxWidth = 1400, HorizontalAlignment = HorizontalAlignment.Center, ColumnDefinitions = new ColumnDefinitions("160,*,160"), RowDefinitions = new RowDefinitions("*,*") };
         for (int i = 0; i < 4; i++) {
             int motor = i;
             var title = new Button { Content = $"Мотор {i+1}", MinHeight = 0, Height = 26, Padding = new Thickness(8,4), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Background = Brush.Parse("#F3F5F7"), BorderBrush = Brush.Parse("#DDE2E7"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5), Cursor = new Cursor(StandardCursorType.Hand), FontWeight = FontWeight.SemiBold };
@@ -43,10 +45,14 @@ public sealed class MotorOverview : UserControl
                 line.Children.Add(values[i][j]);
                 var button = new Button { Content = line, MinHeight = 0, Height = 34, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(4,2), Margin = new Thickness(2), Background = Brush.Parse(TelemetryChart.SeriesColors[new[]{0,1,2,5,6,7}[j]]), Foreground=Brushes.White, CornerRadius = new CornerRadius(5) };
                 button.Click += (_, _) => OpenMetric(motor, channel);
-                Grid.SetColumn(button,j%2); Grid.SetRow(button,j/2); metrics.Children.Add(button);
+                if(j is 1 or 3) continue;
+                int slot=j switch {0=>0,2=>1,4=>2,_=>3};
+                Grid.SetColumn(button,slot%2); Grid.SetRow(button,slot/2); metrics.Children.Add(button);
             }
             var border = new Border { Margin = new Thickness(0,0,0,4), Child = card, BorderBrush = Brush.Parse("#DCE1E6"), BorderThickness = new Thickness(1), Background = Brushes.White, Padding = new Thickness(5), VerticalAlignment = VerticalAlignment.Center, CornerRadius = new CornerRadius(10) };
-            Grid.SetColumn(border, i % 2 == 0 ? 0 : 2); Grid.SetRow(border, i / 2); grid.Children.Add(border);
+            border.Width=160;
+            var view=new Viewbox { Child=border,Width=160,Stretch=Stretch.Uniform,VerticalAlignment=VerticalAlignment.Center }; cardViews.Add(view);
+            Grid.SetColumn(view, i % 2 == 0 ? 0 : 2); Grid.SetRow(view, i / 2); grid.Children.Add(view);
         }
 
         Grid.SetColumn(drawing, 1); Grid.SetRowSpan(drawing, 2); grid.Children.Add(drawing);
@@ -55,12 +61,21 @@ public sealed class MotorOverview : UserControl
             new TextBlock { Text = "Показник → компактний графік · мотор → усі графіки · розгортання — кнопкою вікна", TextWrapping = TextWrapping.Wrap, FontSize = 12 },
             new Border { Child = grid, Background = Brushes.White, Padding = new Thickness(8,24,8,8), CornerRadius = new CornerRadius(10) }, note
         }};
-        ((StackPanel)Content!).Children.Add(motorDetails);
+        var body=(StackPanel)Content!;
+        var summary=new Grid {ColumnDefinitions=new("*,*,*")};
+        var summaryLabels=new[]{"Загальний струм, А","Звук стенда","Напруга"};
+        for(int n=0;n<3;n++) {
+            var value=n==0?totalCurrent:n==1?totalSound:new TextBlock {Text="Немає даних"}; value.FontSize=22;
+            var box=new Border {Background=Brushes.White,CornerRadius=new(8),Padding=new(14),Margin=new(0,0,8,0),Child=new StackPanel {Children={new TextBlock {Text=summaryLabels[n],FontSize=12},value}}}; Grid.SetColumn(box,n);summary.Children.Add(box);
+        }
+        body.Children.Add(summary);
+        body.Children.Add(new MotorChartPanel(charts[0][0],1,null,"Поточні виміри · струм і звук спільні",()=>Stop(),charts.Select(c=>c[0]).ToArray()) { Height=680 });
+        body.Children.Add(motorDetails);
         for(int m=0;m<4;m++) {
             int index=m;
             var panel=new StackPanel { Spacing=8 };
             panel.Children.Add(new ChartRangeBar(()=>charts[index].ToArray()));
-            for(int c=0;c<4;c++) { int axis=c; var chart=charts[m][c]; chart.Height=220;
+            for(int c=0;c<4;c++) { if(c is 1 or 3)continue; int axis=c; var chart=charts[m][c]; chart.Height=220;
                 panel.Children.Add(new Expander { Header=new[]{"Тяга, г","Струм, А","Вібрація XYZ, g","Звук"}[c],Content=chart,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch });
             }
             foreach(var name in new[]{"Температура, °C","Оберти, RPM"}) panel.Children.Add(new Expander {Header=name,Content=new TextBlock {Text="Немає даних",Margin=new(12)},HorizontalAlignment=HorizontalAlignment.Stretch});
@@ -71,15 +86,21 @@ public sealed class MotorOverview : UserControl
     protected override Size MeasureOverride(Size availableSize)
     {
         if(double.IsFinite(availableSize.Width)) {
-            double width=Math.Min(1000,Math.Max(320,availableSize.Width-16));
+            double width=Math.Min(1400,Math.Max(320,availableSize.Width-16));
+            double cardWidth=Math.Clamp(width*.20,160,240);
+            diagramGrid.ColumnDefinitions[0].Width=new GridLength(cardWidth); diagramGrid.ColumnDefinitions[2].Width=new GridLength(cardWidth);
+            foreach(var card in cardViews)card.Width=cardWidth;
             diagramGrid.Width=width;
-            drawing.Height=Math.Clamp((width-320)*1.1,310,580);
+            drawing.Height=Math.Clamp((width-cardWidth*2)*.85,280,620);
         }
         return base.MeasureOverride(availableSize);
     }
     public void UpdateLegacy(IReadOnlyList<Measurement> samples, string sourceLabel, bool recording)
     {
         source = sourceLabel;
+        var latest=samples.LastOrDefault();
+        totalCurrent.Text=latest?.CurrentAmps is {} amps?$"{amps:0.##}":"—";
+        totalSound.Text=(latest?.SoundDb??latest?.SoundAdc) is {} sound?$"{sound:0.##} {(latest?.SoundDb is not null ? "dB*" : "ADC")}":"—";
         for (int i = 0; i < 4; i++) {
             IReadOnlyList<Measurement> channel = i == 0 ? samples : Array.Empty<Measurement>();
             foreach (var chart in charts[i]) chart.Update(channel);

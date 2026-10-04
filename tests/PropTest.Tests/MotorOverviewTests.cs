@@ -26,7 +26,7 @@ public sealed class MotorOverviewTests
             window.GetLogicalDescendants().OfType<CheckBox>().Single(c=>c.Name=="MotorToggle1").IsChecked=true;
             Assert.Equal(4,window.Chart.Samples.Count); Assert.Equal(230,window.Chart.LatestValue(8)); Assert.Equal(110,window.Chart.LatestValue(0));
             window.GetLogicalDescendants().OfType<CheckBox>().Single(c=>c.Name=="MotorToggle0").IsChecked=false;
-            Assert.Equal(2,window.Chart.Samples.Count); Assert.False(window.Chart.HasSeries(0)); Assert.True(window.Chart.HasSeries(8));
+            Assert.Equal(4,window.Chart.Samples.Count); Assert.Equal(1,window.Chart.LatestValue(1)); Assert.False(window.Chart.HasSeries(0)); Assert.True(window.Chart.HasSeries(8));
             Assert.False(window.Chart.HasSeries(14)); Assert.False(window.Chart.HasSeries(15));
         } finally {window.Close();}
     }
@@ -45,10 +45,10 @@ public sealed class MotorOverviewTests
             var graph = (MotorChartWindow)overview.OpenMetric(0,0); windows.Add(graph);
             overview.UpdateLegacy([sample, sample with { Sequence=2, ElapsedMs=400, ThrustGrams=140 }], "SIM · демонстраційні дані", true);
             Assert.Equal(2, graph.Chart.Samples.Count);
-            var other = (MotorChartWindow)overview.OpenMetric(1,0); windows.Add(other); Assert.Empty(other.Chart.Samples);
+            var other = (MotorChartWindow)overview.OpenMetric(1,0); windows.Add(other); Assert.False(other.Chart.HasSeries(8)); Assert.True(other.Chart.HasSeries(1));
             var all = (MotorChartWindow)overview.OpenMotor(0); windows.Add(all);
             Assert.True(graph.Chart.VisibleSeries[0]); Assert.False(graph.Chart.VisibleSeries[1]);
-            Assert.All(all.Chart.VisibleSeries,v=>Assert.True(v));
+            for(int i=0;i<32;i++) Assert.Equal(i<8 || i%8 is not (1 or 5),all.Chart.VisibleSeries[i]);
             all.GetLogicalDescendants().OfType<Button>().Single(b=>b.Name=="SeriesToggle1").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Assert.False(all.Chart.VisibleSeries[1]);
             all.Chart.SetSeriesVisible(1,true);
             var layout=all.GetLogicalDescendants().OfType<Button>().Single(b=>b.Name=="ToggleChartLayout");
@@ -78,6 +78,9 @@ public sealed class MotorOverviewTests
             Capture(graph,"motor-compact",1000,720); Capture(graph,"motor-narrow",760,600); Capture(all,"motor-all",1000,720);
             var detail=overview.GetLogicalDescendants().OfType<Expander>().Single(e=>Equals(e.Header,"Мотор 1 · окремі графіки")); detail.IsExpanded=true;
             Capture(main,"motors-expanded",1220,1050);
+            var embedded=overview.GetLogicalDescendants().OfType<MotorChartPanel>().Single();
+            var scroll=overview.GetLogicalAncestors().OfType<ScrollViewer>().First();
+            scroll.Offset=new Vector(0,embedded.Bounds.Y); Capture(main,"embedded-charts",1220,850);
         } finally { foreach(var window in windows) window.Close(); main.Close(); }
     }
 }

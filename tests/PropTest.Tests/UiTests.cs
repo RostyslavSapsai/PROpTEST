@@ -52,6 +52,7 @@ public sealed class UiTests
         var vm = new MainViewModel(Path.Combine(Path.GetTempPath(), "PropTestEngineering-tests", Guid.NewGuid().ToString(), "errors.db"));
         var window = new MainWindow(vm); window.Show(); window.FindControl<MotorOverview>("MotorsOverview")!.IsVisible = false; window.FindControl<Expander>("LegacyCharts")!.IsExpanded = true; window.UpdateLayout();
         var chart = window.FindControl<TelemetryChart>("ThrustChart")!;
+        window.FindControl<TabControl>("Tabs")!.SelectedIndex = 3; window.UpdateLayout();
         var scroll = chart.GetLogicalAncestors().OfType<ScrollViewer>().First();
         var range = chart.ViewRange;
         window.MouseWheel(chart.TranslatePoint(chart.PlotArea.Center, window)!.Value, new Vector(0, -1));
@@ -184,7 +185,7 @@ public sealed class UiTests
         Click("StartButton"); vm.Throttle = 25; Assert.Equal(15, vm.Throttle);
         await Task.Delay(1600); window.RefreshCharts(); Assert.NotEmpty(vm.Samples);
         var chart = window.FindControl<TelemetryChart>("ThrustChart")!;
-        window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        window.FindControl<TabControl>("Tabs")!.SelectedIndex = 3; window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         var position = chart.TranslatePoint(chart.GetSamplePosition(vm.Samples.Count - 1), window)!.Value;
         window.MouseMove(position); Dispatcher.UIThread.RunJobs();
         Assert.NotNull(chart.HoveredSequence);
@@ -204,6 +205,7 @@ public sealed class UiTests
             bitmap.Render(window); bitmap.Save(Path.Combine(directory, "desktop.png"));
             window.Width = 960; window.Height = 680; window.UpdateLayout(); Dispatcher.UIThread.RunJobs(); window.RefreshCharts(); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             using var compact = new RenderTargetBitmap(new PixelSize(960, 680), new Vector(96, 96)); compact.Render(window); compact.Save(Path.Combine(directory, "desktop-compact.png"));
+            window.FindControl<TabControl>("Tabs")!.SelectedIndex = 0; window.UpdateLayout();
             var stop = window.FindControl<Button>("StopButton")!;
             var stopPosition = stop.TranslatePoint(new Point(), window)!.Value;
             Assert.InRange(stopPosition.Y, 0, window.ClientSize.Height - stop.Bounds.Height);

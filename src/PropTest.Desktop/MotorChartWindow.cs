@@ -5,16 +5,15 @@ using Avalonia.Media;
 
 namespace PropTest.Desktop;
 
-public sealed class MotorChartWindow : Window
+public sealed class MotorChartPanel : UserControl
 {
     public TelemetryChart Chart { get; } = new() { Combined = true };
     public bool IsLegacy { get; private set; }
-    public MotorChartWindow(TelemetryChart source, int motor, int? metric, string sourceLabel, Action stop, TelemetryChart[]? motorSources = null)
+    public MotorChartPanel(TelemetryChart source, int motor, int? metric, string sourceLabel, Action stop, TelemetryChart[]? motorSources = null)
     {
         var sources=motorSources ?? new[]{source};
         var selectedMotors=Enumerable.Range(0,sources.Length).Select(m=>motorSources is null || m==motor-1).ToArray();
-        Title = $"PROpTEST · Мотор {motor}"; Width=1000; Height=720; MinWidth=760; MinHeight=600;
-        WindowStartupLocation=WindowStartupLocation.CenterOwner;
+
         for(int i=0;i<32;i++) Chart.VisibleSeries[i]=metric is null || (metric switch { 0=>i%8==0,1=>i%8==1,2=>i%8 is >=2 and <=4,3=>i%8==5,4=>i%8==6,_=>i%8==7 });
         var root=new Grid { RowDefinitions=new("Auto,Auto,*,Auto"), Margin=new(18) };
         var header=new Grid { ColumnDefinitions=new("*,Auto"), Margin=new(0,0,0,12) };
@@ -35,23 +34,29 @@ public sealed class MotorChartWindow : Window
         var groups=Enumerable.Range(0,4).Select(m=>new StackPanel { Spacing=4 }).ToArray();
         var sections=groups.Select((g,m)=>new Expander { Header=$"Мотор {m+1}", Content=g, IsExpanded=true, HorizontalAlignment=HorizontalAlignment.Stretch }).ToArray();
         foreach(var section in sections) legend.Children.Add(section);
+        var shared=new StackPanel { Spacing=4 };
+        legend.Children.Insert(2,new Expander { Header="Загальні показники",Content=shared,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch });
         var buttons=new Button[32]; var labels=new TextBlock[32];
         for(int i=0;i<32;i++) {
             int axis=i;
             labels[i]=new TextBlock { FontSize=11, Width=174, Height=18, TextWrapping=TextWrapping.NoWrap };
             buttons[i]=new Button { Name=$"SeriesToggle{i}", Content=labels[i], HorizontalAlignment=HorizontalAlignment.Stretch, HorizontalContentAlignment=HorizontalAlignment.Left, Padding=new(10,6) };
             buttons[i].Click+=(_,_)=>{ Chart.SetSeriesVisible(axis,!Chart.VisibleSeries[axis]); RefreshLegend(); };
-            groups[i/8].Children.Add(buttons[i]);
+            if(i%8 is 1 or 5) { if(i<8)shared.Children.Add(buttons[i]); else Chart.VisibleSeries[i]=false; }
+            else groups[i/8].Children.Add(buttons[i]);
         }
         combined.Children.Add(new ScrollViewer { Content=legend });
         var plot = new Grid { RowDefinitions=new("Auto,*") };
         plot.Children.Add(new TextBlock { Text="Незалежні масштаби · межі — у підказках легенди · значення при наведенні", FontSize=11, TextWrapping=TextWrapping.Wrap, Foreground=Brush.Parse("#66717C"), Margin=new(0,0,0,6) });
         Grid.SetRow(Chart,1); plot.Children.Add(Chart); Grid.SetColumn(plot,1); combined.Children.Add(plot); Grid.SetRow(combined,2); root.Children.Add(combined);
         var old=new StackPanel { Spacing=10 };
+        var sharedOld=new StackPanel { Spacing=8 };
+        foreach(int c in new[]{1,3}) sharedOld.Children.Add(new Expander {Header=c==1?"Загальний струм, А":"Звук стенда",Content=legacyByMotor[0][c],IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch});
+        old.Children.Add(new Expander {Header="Загальні показники",Content=sharedOld,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch});
         var oldGroups=new Expander[sources.Length];
         for(int m=0;m<sources.Length;m++) {
             var group=new StackPanel { Spacing=8 };
-            for(int c=0;c<4;c++) group.Children.Add(new Expander { Header=new[]{"Тяга, г","Струм, А","Вібрація XYZ, g","Звук"}[c], Content=legacyByMotor[m][c], IsExpanded=true, HorizontalAlignment=HorizontalAlignment.Stretch });
+            for(int c=0;c<4;c++) if(c is 0 or 2) group.Children.Add(new Expander { Header=new[]{"Тяга, г","Струм, А","Вібрація XYZ, g","Звук"}[c], Content=legacyByMotor[m][c], IsExpanded=true, HorizontalAlignment=HorizontalAlignment.Stretch });
             foreach(var name in new[]{"Температура, °C","Оберти, RPM"}) group.Children.Add(new Expander { Header=name,Content=new TextBlock {Text="Немає даних",Margin=new(12)},HorizontalAlignment=HorizontalAlignment.Stretch });
             oldGroups[m]=new Expander { Header=$"Мотор {m+1}",Content=group,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch }; old.Children.Add(oldGroups[m]);
         }
@@ -64,19 +69,32 @@ public sealed class MotorChartWindow : Window
         void RefreshLegend() {
             for(int i=0;i<32;i++) {
                 bool active=Chart.VisibleSeries[i], has=Chart.HasSeries(i); var scale=Chart.SeriesScale(i); var value=Chart.LatestValue(i);
-                labels[i].Text=$"{(active?"●":"○")} {TelemetryChart.SeriesNames[i%8]}  "+(has?$"{value:0.##} {Chart.SeriesUnit(i)}":"немає даних");
+                labels[i].Text=$"{(active?"●":"○")} {(i%8==1?"Загальний струм":i%8==5?"Звук стенда":TelemetryChart.SeriesNames[i%8])}  "+(has?$"{value:0.##} {Chart.SeriesUnit(i)}":"немає даних");
                 ToolTip.SetTip(buttons[i],$"Масштаб: {scale.Min:0.##}…{scale.Max:0.##} {Chart.SeriesUnit(i)}");
                 labels[i].Foreground=Brush.Parse(active&&has?"#FFFFFF":"#59616B");
                 buttons[i].Background=Brush.Parse(active&&has?TelemetryChart.SeriesColors[i%8]:"#E4E7EB");
             }
         }
         void Update() {
-            Chart.UpdateMotors(sources.Select((c,m)=>(IReadOnlyList<PropTest.Core.Measurement>)(selectedMotors[m]?c.Samples:Array.Empty<PropTest.Core.Measurement>())).ToArray());
+            Chart.UpdateMotors(sources.Select((c,m)=>(IReadOnlyList<PropTest.Core.Measurement>)(selectedMotors[m]?c.Samples:m==0?c.Samples.Select(s=>s with { ThrustGrams=null,VibrationX=null,VibrationY=null,VibrationZ=null }).ToArray():Array.Empty<PropTest.Core.Measurement>())).ToArray());
             for(int m=0;m<4;m++) sections[m].IsVisible=m<sources.Length && selectedMotors[m];
             for(int m=0;m<sources.Length;m++) { foreach(var c in legacyByMotor[m])c.Update(sources[m].Samples); oldGroups[m].IsVisible=selectedMotors[m] && sources[m].Samples.Count>0; } RefreshLegend();
         }
         for(int m=0;m<sources.Length;m++) { int index=m; var pick=(CheckBox)motorPicker.Children[m]; pick.IsCheckedChanged+=(_,_)=>{selectedMotors[index]=pick.IsChecked==true; Update();}; }
-        Update(); foreach(var c in sources)c.DataUpdated+=Update;
-        Closed+=(_,_)=>{foreach(var c in sources)c.DataUpdated-=Update;};
+        Update();
+        AttachedToVisualTree+=(_,_)=>{foreach(var c in sources)c.DataUpdated+=Update; Update();};
+        DetachedFromVisualTree+=(_,_)=>{foreach(var c in sources)c.DataUpdated-=Update;};
+    }
+}
+
+public sealed class MotorChartWindow : Window
+{
+    readonly MotorChartPanel panel;
+    public TelemetryChart Chart => panel.Chart;
+    public bool IsLegacy => panel.IsLegacy;
+    public MotorChartWindow(TelemetryChart source,int motor,int? metric,string sourceLabel,Action stop,TelemetryChart[]? motorSources=null) {
+        Title=$"PROpTEST · Мотор {motor}"; Width=1000; Height=720; MinWidth=760; MinHeight=600;
+        WindowStartupLocation=WindowStartupLocation.CenterOwner;
+        panel=new MotorChartPanel(source,motor,metric,sourceLabel,stop,motorSources); Content=panel;
     }
 }
