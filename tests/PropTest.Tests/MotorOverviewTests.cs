@@ -25,11 +25,18 @@ public sealed class MotorOverviewTests
             overview.UpdateLegacy([sample], "SIM · демонстраційні дані", true);
             Assert.Single(overview.MotorSamples(1));
             for(int i=2;i<=4;i++) Assert.Empty(overview.MotorSamples(i));
-            var graph = (ChartWindow)overview.OpenMetric(0,0); windows.Add(graph);
+            var graph = (MotorChartWindow)overview.OpenMetric(0,0); windows.Add(graph);
             overview.UpdateLegacy([sample, sample with { Sequence=2, ElapsedMs=400, ThrustGrams=140 }], "SIM · демонстраційні дані", true);
             Assert.Equal(2, graph.Chart.Samples.Count);
-            var other = (ChartWindow)overview.OpenMetric(1,0); windows.Add(other); Assert.Empty(other.Chart.Samples);
-            var all = overview.OpenMotor(0); windows.Add(all);
+            var other = (MotorChartWindow)overview.OpenMetric(1,0); windows.Add(other); Assert.Empty(other.Chart.Samples);
+            var all = (MotorChartWindow)overview.OpenMotor(0); windows.Add(all);
+            Assert.True(graph.Chart.VisibleSeries[0]); Assert.False(graph.Chart.VisibleSeries[1]);
+            Assert.All(all.Chart.VisibleSeries,v=>Assert.True(v));
+            all.GetLogicalDescendants().OfType<Button>().Single(b=>b.Name=="SeriesToggle1").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Assert.False(all.Chart.VisibleSeries[1]);
+            all.Chart.SetSeriesVisible(1,true);
+            var layout=all.GetLogicalDescendants().OfType<Button>().Single(b=>b.Name=="ToggleChartLayout");
+            layout.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Assert.True(all.IsLegacy);
+            layout.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Assert.False(all.IsLegacy);
             var output = Environment.GetEnvironmentVariable("PROPTEST_ARTIFACTS");
             void Capture(Window window, string name, int width, int height) {
                 window.Width=width; window.Height=height; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
@@ -51,7 +58,7 @@ public sealed class MotorOverviewTests
             Capture(main,"motors-running",1220,850);
             vm.Stop(); main.RefreshCharts(); await Task.Delay(1700);
             Capture(main,"motors-stopped",1220,850);
-            Capture(graph,"motor-compact",620,460); Capture(all,"motor-all",1000,720);
+            Capture(graph,"motor-compact",1000,720); Capture(graph,"motor-narrow",760,600); Capture(all,"motor-all",1000,720);
         } finally { foreach(var window in windows) window.Close(); main.Close(); }
     }
 }

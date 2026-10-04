@@ -75,11 +75,29 @@ public sealed class TelemetryChart : Control
     public long? HoveredSequence => selected < 0 ? null : samples[selected].Sequence;
     public Rect? HoverBounds { get; private set; }
     public Rect PlotArea => new(48, 14, Math.Max(1, Bounds.Width - 72), Math.Max(1, Bounds.Height - 46));
-    int Axes => Channel == ChartChannel.Vibration ? 3 : 1;
+    public bool Combined { get; set; }
+    public bool[] VisibleSeries { get; } = Enumerable.Repeat(true,8).ToArray();
+    readonly bool[] available = new bool[8];
+    readonly (double Min,double Max)[] scales = new (double,double)[8];
+    public static readonly string[] SeriesNames = ["Тяга", "Струм", "Вібрація X", "Вібрація Y", "Вібрація Z", "Звук", "Температура", "Оберти"];
+    public static readonly string[] SeriesColors = ["#C44F0A", "#24756A", "#436AB3", "#9751A3", "#687F16", "#B33964", "#84714E", "#426D80"];
+    public string SeriesUnit(int axis) => axis switch { 0=>"г",1=>"А",2 or 3 or 4=>"g",5=>SoundUnit,6=>"°C",_=>"RPM" };
+    public double? SeriesValue(Measurement s,int axis) => axis switch {0=>s.ThrustGrams,1=>s.CurrentAmps,2=>s.VibrationX,3=>s.VibrationY,4=>s.VibrationZ,5=>s.SoundDb??s.SoundAdc,_=>null};
+    public (double Min,double Max) SeriesScale(int axis) => scales[axis];
+    public bool HasSeries(int axis) => available[axis];
+    public void SetSeriesVisible(int axis,bool visible) { VisibleSeries[axis]=visible; SelectPoint(); InvalidateVisual(); }
+    bool Normalize { get { if(!Combined)return false; int count=0; for(int i=0;i<8;i++)if(VisibleSeries[i]&&available[i]&&++count>1)return true; return false; } }
+    int Axes => Combined ? 8 : Channel == ChartChannel.Vibration ? 3 : 1;
     static readonly IBrush[] Colors = [Brush.Parse("#C44F0A"), Brush.Parse("#24756A"), Brush.Parse("#436AB3")];
-    IBrush Color(int axis) => Channel == ChartChannel.Current ? Colors[1] : Channel == ChartChannel.Sound ? Colors[2] : Colors[axis];
+    IBrush Color(int axis) => Combined ? Brush.Parse(SeriesColors[axis]) : Channel == ChartChannel.Current ? Colors[1] : Channel == ChartChannel.Sound ? Colors[2] : Colors[axis];
     public string SoundUnit => samples.Any(s => s.SoundDb.HasValue) ? "dB*" : "ADC";
-    double? Value(Measurement s, int axis) => Channel switch
+    double? Value(Measurement s,int axis) {
+        if(!Combined) return LegacyValue(s,axis);
+        if(!VisibleSeries[axis] || SeriesValue(s,axis) is not {} value) return null;
+        var range=scales[axis];
+        return Normalize ? (value-range.Min)/(range.Max-range.Min) : value;
+    }
+    double? LegacyValue(Measurement s, int axis) => Channel switch
     { ChartChannel.Current => s.CurrentAmps, ChartChannel.Sound => s.SoundDb ?? s.SoundAdc, ChartChannel.Vibration => axis == 0 ? s.VibrationX : axis == 1 ? s.VibrationY : s.VibrationZ, _ => s.ThrustGrams };
     (int Start, double MinX, double MaxX, double MinY, double MaxY) Limits()
     {
@@ -106,7 +124,13 @@ public sealed class TelemetryChart : Control
             area.Bottom - (Value(samples[index], axis)!.Value - l.MinY) / (l.MaxY - l.MinY) * area.Height);
     }
     public Point GetSamplePosition(int index, int axis = 0) => Position(index, axis, Limits());
-    public void Update(IReadOnlyList<Measurement> values) { if (samples.FirstOrDefault()?.RunId is { } previous && previous != values.FirstOrDefault()?.RunId) { viewMin = viewMax = null; history.Clear(); lastWheelTime = null; } samples = values; SelectPoint(); InvalidateVisual(); DataUpdated?.Invoke(); }
+    public void Update(IReadOnlyList<Measurement> values) { if (samples.FirstOrDefault()?.RunId is { } previous && previous != values.FirstOrDefault()?.RunId) { viewMin = viewMax = null; history.Clear(); lastWheelTime = null; } samples = values;
+        for(int a=0;a<8;a++) {
+            double min=0,max=0; available[a]=false;
+            foreach(var sample in samples) if(SeriesValue(sample,a) is {} value) { available[a]=true; min=Math.Min(min,value); max=Math.Max(max,value); }
+            scales[a]=(min,max>min?max:min+1);
+        }
+        SelectPoint(); InvalidateVisual(); DataUpdated?.Invoke(); }
     void SelectPoint()
     {
         selected = -1; HoverBounds = null;
@@ -133,7 +157,7 @@ public sealed class TelemetryChart : Control
         {
             var y = area.Bottom - area.Height * i / 4;
             context.DrawLine(new Pen(Brush.Parse("#E5EAF0")), new(area.Left, y), new(area.Right, y));
-            Text((l.MinY + (l.MaxY - l.MinY) * i / 4).ToString("0.#"), 1, y - 7);
+            Text(Normalize ? "" : (l.MinY + (l.MaxY - l.MinY) * i / 4).ToString("0.#"), 1, y - 7);
             Text((l.MinX + (l.MaxX - l.MinX) * i / 4).ToString("0.#"), area.Left + area.Width * i / 4 - 6, area.Bottom + 8);
         }
         Text("с", area.Right + 12, area.Bottom + 8);
@@ -163,9 +187,9 @@ public sealed class TelemetryChart : Control
         {
             var p = Position(selected, selectedAxis, l); var s = samples[selected];
             context.DrawEllipse(Brushes.White, new Pen(Color(selectedAxis), 2.5), p, 5, 5);
-            var unit = Channel switch { ChartChannel.Current => "А", ChartChannel.Sound => SoundUnit, ChartChannel.Vibration => "g · " + "XYZ"[selectedAxis], _ => "г" };
-            var text = $"№{s.Sequence} · {s.ElapsedMs / 1000.0:0.000} с\nГаз: {s.ThrottlePercent:0.#}%\n{Value(s, selectedAxis):0.000} {unit}";
-            var width = Math.Min(174, area.Width); var height = Math.Min(64, area.Height);
+            var unit = Combined ? SeriesNames[selectedAxis]+", "+SeriesUnit(selectedAxis) : Channel switch { ChartChannel.Current => "А", ChartChannel.Sound => SoundUnit, ChartChannel.Vibration => "g · " + "XYZ"[selectedAxis], _ => "г" };
+            var text = $"№{s.Sequence} · {s.ElapsedMs / 1000.0:0.000} с\nГаз: {s.ThrottlePercent:0.#}%\n{(Combined ? SeriesValue(s,selectedAxis) : Value(s, selectedAxis)):0.000} {unit}";
+            var width = Math.Min(240, area.Width); var height = Math.Min(64, area.Height);
             var x = p.X + 12 + width <= area.Right ? p.X + 12 : p.X - width - 12;
             var box = new Rect(Math.Clamp(x, area.Left, area.Right - width), Math.Clamp(p.Y - height - 10, area.Top, area.Bottom - height), width, height);
             HoverBounds = box;

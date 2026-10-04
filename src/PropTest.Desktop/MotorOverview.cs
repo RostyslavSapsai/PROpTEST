@@ -76,13 +76,15 @@ public sealed class MotorOverview : UserControl
     }
     public Window OpenMetric(int motor, int channel)
     {
-        Window window;
-        if (channel < 4) window = new ChartWindow(charts[motor][channel], true, source, () => Stop(), true, $"Мотор {motor+1}");
-        else window = new Window { Title = $"Мотор {motor+1} · " + (channel == 4 ? "Температура" : "Оберти"), Width = 480, Height = 220,
-            Content = new TextBlock { Margin = new Thickness(24), Text = "Дані цього датчика ще не надходять у програму. Графік з’явиться після інтеграції датчика та протоколу.", TextWrapping = TextWrapping.Wrap } };
+        var window = new MotorChartWindow(charts[motor][0],motor+1,channel,source,()=>Stop());
         ShowDetail(window); return window;
     }
     public Window OpenMotor(int motor)
+    {
+        var window = new MotorChartWindow(charts[motor][0],motor+1,null,source,()=>Stop());
+        ShowDetail(window); return window;
+    }
+    public Window OpenLegacyMotor(int motor)
     {
         var window = new Window { Title = $"PROpTEST · Мотор {motor+1}", Width = 1000, Height = 720, MinWidth = 600, MinHeight = 440, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var stack = new StackPanel { Spacing = 12, Margin = new Thickness(18) };

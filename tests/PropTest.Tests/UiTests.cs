@@ -130,6 +130,11 @@ public sealed class UiTests
         Assert.Equal(viewed, chart.ViewRange); Assert.Equal(3001, chart.Samples.Count);
         chart.ResetView(); Assert.Equal(0, chart.ViewRange.Start); Assert.Equal(30.01, chart.ViewRange.End);
         source.Update(samples.Append(new Measurement(id, 3001, 31000, 20, 45, 1)).ToArray()); Assert.Equal(31, chart.ViewRange.End);
+        bar.From.Value=4; bar.To.Value=8; Assert.True(bar.Apply());
+        bar.GetLogicalDescendants().OfType<Button>().Single(b=>b.Name=="ResetRangeButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.Equal((0d,31d),chart.ViewRange); Assert.Equal(0m,bar.From.Value); Assert.Equal(31m,bar.To.Value);
+        source.Update(samples.Append(new Measurement(id,3001,32000,20,45,1)).ToArray());
+        Assert.Equal((0d,32d),chart.ViewRange);
         var directory = Environment.GetEnvironmentVariable("PROPTEST_ARTIFACTS");
         if (directory is not null)
         {

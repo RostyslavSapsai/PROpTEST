@@ -18,7 +18,7 @@ public sealed class ChartWindow : Window
             _ => "Тяга, г"
         };
         Title = "PROpTEST · " + (motorName is null ? "" : motorName + " · ") + title;
-        Width = compact ? 620 : 1100; Height = compact ? 460 : 720; MinWidth = 480; MinHeight = 360;
+        Width = compact ? 620 : 1100; Height = compact ? 520 : 720; MinWidth = 480; MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Chart = new TelemetryChart { Channel = source.Channel };
         Chart.Update(source.Samples);
@@ -26,10 +26,6 @@ public sealed class ChartWindow : Window
         var header = new StackPanel { Spacing = 8 };
         header.Children.Add(new TextBlock { Text = (motorName is null ? "" : motorName + " · ") + title, FontSize = 22, FontWeight = FontWeight.SemiBold });
         header.Children.Add(new TextBlock { Text = (live ? "Живий перегляд · " : "Збережений запис · ") + sourceLabel, TextWrapping = TextWrapping.Wrap });
-        var buttons = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 4, 0, 12) };
-        var auto = new Button { Content = "Авто", HorizontalAlignment = HorizontalAlignment.Left }; auto.Click += (_, _) => Chart.ResetView();
-        buttons.Children.Add(auto);
-        header.Children.Add(buttons);
         header.Children.Add(new ChartRangeBar(() => [Chart]));
         root.Children.Add(header); Grid.SetRow(Chart, 1); root.Children.Add(Chart);
         var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 12, 0, 0) };
