@@ -14,6 +14,23 @@ namespace PropTest.Tests;
 public sealed class MotorOverviewTests
 {
     [AvaloniaFact]
+    public void MotorSelectionDoesNotMixChannels()
+    {
+        var id=Guid.NewGuid();
+        var first=new TelemetryChart(); var second=new TelemetryChart();
+        first.Update([new Measurement(id,1,1000,10,100,1),new Measurement(id,2,2000,10,110,1)]);
+        second.Update([new Measurement(id,1,1000,10,220,2),new Measurement(id,2,2000,10,230,2)]);
+        var window=new MotorChartWindow(first,1,null,"SIM · два незалежні канали",()=>{},[first,second]); window.Show();
+        try {
+            Assert.Equal(110,window.Chart.LatestValue(0)); Assert.False(window.Chart.HasSeries(8));
+            window.GetLogicalDescendants().OfType<CheckBox>().Single(c=>c.Name=="MotorToggle1").IsChecked=true;
+            Assert.Equal(4,window.Chart.Samples.Count); Assert.Equal(230,window.Chart.LatestValue(8)); Assert.Equal(110,window.Chart.LatestValue(0));
+            window.GetLogicalDescendants().OfType<CheckBox>().Single(c=>c.Name=="MotorToggle0").IsChecked=false;
+            Assert.Equal(2,window.Chart.Samples.Count); Assert.False(window.Chart.HasSeries(0)); Assert.True(window.Chart.HasSeries(8));
+            Assert.False(window.Chart.HasSeries(14)); Assert.False(window.Chart.HasSeries(15));
+        } finally {window.Close();}
+    }
+    [AvaloniaFact]
     public async Task LegacyDataIsNotDuplicatedAndWindowsStayLive()
     {
         var vm = new MainViewModel(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "test.db"), true, false, () => []);
@@ -44,7 +61,7 @@ public sealed class MotorOverviewTests
                 using var image = new RenderTargetBitmap(new PixelSize(width,height),new Vector(96,96)); image.Render(window); image.Save(Path.Combine(output,name+".png"));
             }
             vm.IsSimulation = true; vm.Connect(); vm.Start(); await Task.Delay(700); main.RefreshCharts();
-            Capture(main,"motors-1220",1220,850);
+            Capture(main,"motors-wide",1920,1080); Capture(main,"motors-1220",1220,850);
             var drawing = overview.GetLogicalDescendants().OfType<Control>().Single(c => c.Name == "DroneDiagram");
             double scale=Math.Min(drawing.Bounds.Width/420,drawing.Bounds.Height/460);
             var hover = drawing.TranslatePoint(new Point((drawing.Bounds.Width-420*scale)/2+110*scale,(drawing.Bounds.Height-460*scale)/2+100*scale),main)!.Value;
@@ -59,6 +76,8 @@ public sealed class MotorOverviewTests
             vm.Stop(); main.RefreshCharts(); await Task.Delay(1700);
             Capture(main,"motors-stopped",1220,850);
             Capture(graph,"motor-compact",1000,720); Capture(graph,"motor-narrow",760,600); Capture(all,"motor-all",1000,720);
+            var detail=overview.GetLogicalDescendants().OfType<Expander>().Single(e=>Equals(e.Header,"Мотор 1 · окремі графіки")); detail.IsExpanded=true;
+            Capture(main,"motors-expanded",1220,1050);
         } finally { foreach(var window in windows) window.Close(); main.Close(); }
     }
 }

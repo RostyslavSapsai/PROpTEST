@@ -15,7 +15,9 @@ public sealed class MotorOverview : UserControl
     readonly TelemetryChart[][] charts = Enumerable.Range(0,4).Select(_ => Enum.GetValues<ChartChannel>().Select(c => new TelemetryChart { Channel = c }).ToArray()).ToArray();
     readonly TextBlock[][] values = Enumerable.Range(0,4).Select(_ => Enumerable.Range(0,6).Select(_ => new TextBlock()).ToArray()).ToArray();
     readonly TextBlock[] states = Enumerable.Range(0,4).Select(_ => new TextBlock { FontSize = 10, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Height = 14, VerticalAlignment = VerticalAlignment.Center }).ToArray();
+    readonly StackPanel motorDetails = new() { Spacing=10 };
     readonly DroneDrawing drawing;
+    readonly Grid diagramGrid;
     readonly TextBlock note = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = Brush.Parse("#596779") };
     string source = "";
     public Action Stop { get; set; } = () => { };
@@ -23,7 +25,7 @@ public sealed class MotorOverview : UserControl
     public MotorOverview()
     {
         drawing = new DroneDrawing(OpenMotor) { Name = "DroneDiagram", Height = 340, VerticalAlignment = VerticalAlignment.Center };
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("160,*,160"), RowDefinitions = new RowDefinitions("*,*") };
+        var grid = diagramGrid = new Grid { MaxWidth = 1000, HorizontalAlignment = HorizontalAlignment.Center, ColumnDefinitions = new ColumnDefinitions("160,*,160"), RowDefinitions = new RowDefinitions("*,*") };
         for (int i = 0; i < 4; i++) {
             int motor = i;
             var title = new Button { Content = $"Мотор {i+1}", MinHeight = 0, Height = 26, Padding = new Thickness(8,4), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Background = Brush.Parse("#F3F5F7"), BorderBrush = Brush.Parse("#DDE2E7"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5), Cursor = new Cursor(StandardCursorType.Hand), FontWeight = FontWeight.SemiBold };
@@ -36,23 +38,44 @@ public sealed class MotorOverview : UserControl
             for (int j = 0; j < labels.Length; j++) {
                 int channel = j;
                 var line = new StackPanel { Spacing = 1, HorizontalAlignment = HorizontalAlignment.Center };
-                line.Children.Add(new TextBlock { Text = labels[j], FontSize = 9, Foreground = Brush.Parse("#66717C") });
+                line.Children.Add(new TextBlock { Text = labels[j], FontSize = 9, Foreground = Brushes.White });
                 values[i][j].TextAlignment = TextAlignment.Center; values[i][j].Text = "—"; values[i][j].FontWeight = FontWeight.SemiBold; values[i][j].FontSize = 14;
                 line.Children.Add(values[i][j]);
-                var button = new Button { Content = line, MinHeight = 0, Height = 34, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(4,2), Margin = new Thickness(2), Background = Brush.Parse("#F1F3F5"), CornerRadius = new CornerRadius(5) };
+                var button = new Button { Content = line, MinHeight = 0, Height = 34, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(4,2), Margin = new Thickness(2), Background = Brush.Parse(TelemetryChart.SeriesColors[new[]{0,1,2,5,6,7}[j]]), Foreground=Brushes.White, CornerRadius = new CornerRadius(5) };
                 button.Click += (_, _) => OpenMetric(motor, channel);
                 Grid.SetColumn(button,j%2); Grid.SetRow(button,j/2); metrics.Children.Add(button);
             }
-            var border = new Border { Margin = new Thickness(0,0,0,4), Child = card, BorderBrush = Brush.Parse("#DCE1E6"), BorderThickness = new Thickness(1), Background = Brushes.White, Padding = new Thickness(5), VerticalAlignment = i < 2 ? VerticalAlignment.Top : VerticalAlignment.Bottom, CornerRadius = new CornerRadius(10) };
+            var border = new Border { Margin = new Thickness(0,0,0,4), Child = card, BorderBrush = Brush.Parse("#DCE1E6"), BorderThickness = new Thickness(1), Background = Brushes.White, Padding = new Thickness(5), VerticalAlignment = VerticalAlignment.Center, CornerRadius = new CornerRadius(10) };
             Grid.SetColumn(border, i % 2 == 0 ? 0 : 2); Grid.SetRow(border, i / 2); grid.Children.Add(border);
         }
+
         Grid.SetColumn(drawing, 1); Grid.SetRowSpan(drawing, 2); grid.Children.Add(drawing);
         Content = new StackPanel { Spacing = 12, Children = {
             new TextBlock { Text = "Огляд чотирьох моторів", FontSize = 22, FontWeight = FontWeight.SemiBold },
             new TextBlock { Text = "Показник → компактний графік · мотор → усі графіки · розгортання — кнопкою вікна", TextWrapping = TextWrapping.Wrap, FontSize = 12 },
-            new Border { Child = grid, Background = Brushes.White, Padding = new Thickness(8), CornerRadius = new CornerRadius(10) }, note
+            new Border { Child = grid, Background = Brushes.White, Padding = new Thickness(8,24,8,8), CornerRadius = new CornerRadius(10) }, note
         }};
+        ((StackPanel)Content!).Children.Add(motorDetails);
+        for(int m=0;m<4;m++) {
+            int index=m;
+            var panel=new StackPanel { Spacing=8 };
+            panel.Children.Add(new ChartRangeBar(()=>charts[index].ToArray()));
+            for(int c=0;c<4;c++) { int axis=c; var chart=charts[m][c]; chart.Height=220;
+                panel.Children.Add(new Expander { Header=new[]{"Тяга, г","Струм, А","Вібрація XYZ, g","Звук"}[c],Content=chart,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch });
+            }
+            foreach(var name in new[]{"Температура, °C","Оберти, RPM"}) panel.Children.Add(new Expander {Header=name,Content=new TextBlock {Text="Немає даних",Margin=new(12)},HorizontalAlignment=HorizontalAlignment.Stretch});
+            motorDetails.Children.Add(new Expander { Header=$"Мотор {m+1} · окремі графіки",Content=panel,IsVisible=false,HorizontalAlignment=HorizontalAlignment.Stretch });
+        }
         UpdateLegacy([], "", false);
+    }
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        if(double.IsFinite(availableSize.Width)) {
+            double width=Math.Min(1000,Math.Max(320,availableSize.Width-16));
+            diagramGrid.Width=width;
+            drawing.Height=Math.Clamp((width-320)*1.1,310,580);
+        }
+        return base.MeasureOverride(availableSize);
     }
     public void UpdateLegacy(IReadOnlyList<Measurement> samples, string sourceLabel, bool recording)
     {
@@ -60,6 +83,7 @@ public sealed class MotorOverview : UserControl
         for (int i = 0; i < 4; i++) {
             IReadOnlyList<Measurement> channel = i == 0 ? samples : Array.Empty<Measurement>();
             foreach (var chart in charts[i]) chart.Update(channel);
+            motorDetails.Children[i].IsVisible=channel.Count>0;
             var last = channel.LastOrDefault();
             string Format(double? value, string unit) => value.HasValue ? $"{value:0.##} {unit}" : "—";
             values[i][0].Text = Format(last?.ThrustGrams, "г"); values[i][1].Text = Format(last?.CurrentAmps, "А");
@@ -76,12 +100,12 @@ public sealed class MotorOverview : UserControl
     }
     public Window OpenMetric(int motor, int channel)
     {
-        var window = new MotorChartWindow(charts[motor][0],motor+1,channel,source,()=>Stop());
+        var window = new MotorChartWindow(charts[motor][0],motor+1,channel,source,()=>Stop(),charts.Select(c=>c[0]).ToArray());
         ShowDetail(window); return window;
     }
     public Window OpenMotor(int motor)
     {
-        var window = new MotorChartWindow(charts[motor][0],motor+1,null,source,()=>Stop());
+        var window = new MotorChartWindow(charts[motor][0],motor+1,null,source,()=>Stop(),charts.Select(c=>c[0]).ToArray());
         ShowDetail(window); return window;
     }
     public Window OpenLegacyMotor(int motor)
@@ -224,7 +248,7 @@ sealed class DroneDrawing : Control
             context.DrawEllipse(dark,null,p,2,2);
             DrawRotationArrows(context,p,i);
             var text=new FormattedText($"M{i+1}",CultureInfo.CurrentCulture,FlowDirection.LeftToRight,Typeface.Default,14,Brush.Parse(hot?"#247DCA":"#626C76"));
-            context.DrawText(text,new Point(p.X-text.Width/2,(i<2?-22:448)));
+            context.DrawText(text,new Point(p.X-text.Width/2,(i<2?-16:440)));
         }
     }
     protected override void OnPointerMoved(PointerEventArgs e) {

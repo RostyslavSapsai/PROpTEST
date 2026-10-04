@@ -76,20 +76,28 @@ public sealed class TelemetryChart : Control
     public Rect? HoverBounds { get; private set; }
     public Rect PlotArea => new(48, 14, Math.Max(1, Bounds.Width - 72), Math.Max(1, Bounds.Height - 46));
     public bool Combined { get; set; }
-    public bool[] VisibleSeries { get; } = Enumerable.Repeat(true,8).ToArray();
-    readonly bool[] available = new bool[8];
-    readonly (double Min,double Max)[] scales = new (double,double)[8];
+    public bool[] VisibleSeries { get; } = Enumerable.Repeat(true,32).ToArray();
+    readonly bool[] available = new bool[32];
+    readonly (double Min,double Max)[] scales = new (double,double)[32];
     public static readonly string[] SeriesNames = ["Тяга", "Струм", "Вібрація X", "Вібрація Y", "Вібрація Z", "Звук", "Температура", "Оберти"];
     public static readonly string[] SeriesColors = ["#C44F0A", "#24756A", "#436AB3", "#9751A3", "#687F16", "#B33964", "#84714E", "#426D80"];
-    public string SeriesUnit(int axis) => axis switch { 0=>"г",1=>"А",2 or 3 or 4=>"g",5=>SoundUnit,6=>"°C",_=>"RPM" };
-    public double? SeriesValue(Measurement s,int axis) => axis switch {0=>s.ThrustGrams,1=>s.CurrentAmps,2=>s.VibrationX,3=>s.VibrationY,4=>s.VibrationZ,5=>s.SoundDb??s.SoundAdc,_=>null};
+    public string SeriesUnit(int axis) => (axis%8) switch { 0=>"г",1=>"А",2 or 3 or 4=>"g",5=>SoundUnit,6=>"°C",_=>"RPM" };
+    readonly Dictionary<Measurement,int> motorOf = new(ReferenceEqualityComparer.Instance);
+    public void UpdateMotors(IReadOnlyList<IReadOnlyList<Measurement>> motors) {
+        motorOf.Clear(); var merged=new List<Measurement>();
+        for(int m=0;m<motors.Count;m++) foreach(var original in motors[m]) { var sample=original with {}; motorOf[sample]=m; merged.Add(sample); }
+        Update(merged.OrderBy(s=>s.ElapsedMs).ToArray());
+    }
+    bool MatchesMotor(Measurement s,int axis) => (motorOf.TryGetValue(s,out int m)?m:0)==axis/8;
+    public double? LatestValue(int axis) => samples.LastOrDefault(s=>MatchesMotor(s,axis)) is {} last ? SeriesValue(last,axis) : null;
+    public double? SeriesValue(Measurement s,int axis) => !MatchesMotor(s,axis) ? null : (axis%8) switch {0=>s.ThrustGrams,1=>s.CurrentAmps,2=>s.VibrationX,3=>s.VibrationY,4=>s.VibrationZ,5=>s.SoundDb??s.SoundAdc,_=>null};
     public (double Min,double Max) SeriesScale(int axis) => scales[axis];
     public bool HasSeries(int axis) => available[axis];
     public void SetSeriesVisible(int axis,bool visible) { VisibleSeries[axis]=visible; SelectPoint(); InvalidateVisual(); }
-    bool Normalize { get { if(!Combined)return false; int count=0; for(int i=0;i<8;i++)if(VisibleSeries[i]&&available[i]&&++count>1)return true; return false; } }
-    int Axes => Combined ? 8 : Channel == ChartChannel.Vibration ? 3 : 1;
+    bool Normalize { get { if(!Combined)return false; int count=0; for(int i=0;i<32;i++)if(VisibleSeries[i]&&available[i]&&++count>1)return true; return false; } }
+    int Axes => Combined ? 32 : Channel == ChartChannel.Vibration ? 3 : 1;
     static readonly IBrush[] Colors = [Brush.Parse("#C44F0A"), Brush.Parse("#24756A"), Brush.Parse("#436AB3")];
-    IBrush Color(int axis) => Combined ? Brush.Parse(SeriesColors[axis]) : Channel == ChartChannel.Current ? Colors[1] : Channel == ChartChannel.Sound ? Colors[2] : Colors[axis];
+    IBrush Color(int axis) => Brush.Parse(SeriesColors[Combined ? axis%8 : Channel switch { ChartChannel.Current=>1,ChartChannel.Sound=>5,ChartChannel.Vibration=>2+axis,_=>0 }]);
     public string SoundUnit => samples.Any(s => s.SoundDb.HasValue) ? "dB*" : "ADC";
     double? Value(Measurement s,int axis) {
         if(!Combined) return LegacyValue(s,axis);
@@ -125,7 +133,7 @@ public sealed class TelemetryChart : Control
     }
     public Point GetSamplePosition(int index, int axis = 0) => Position(index, axis, Limits());
     public void Update(IReadOnlyList<Measurement> values) { if (samples.FirstOrDefault()?.RunId is { } previous && previous != values.FirstOrDefault()?.RunId) { viewMin = viewMax = null; history.Clear(); lastWheelTime = null; } samples = values;
-        for(int a=0;a<8;a++) {
+        for(int a=0;a<32;a++) {
             double min=0,max=0; available[a]=false;
             foreach(var sample in samples) if(SeriesValue(sample,a) is {} value) { available[a]=true; min=Math.Min(min,value); max=Math.Max(max,value); }
             scales[a]=(min,max>min?max:min+1);
@@ -167,8 +175,10 @@ public sealed class TelemetryChart : Control
             for (int a = 0; a < Axes; a++)
             {
                 Point? previous = null; var pen = new Pen(Color(a), 1.5);
+                if(Combined && a/8>0) pen.DashStyle=new DashStyle(new double[]{6,2+a/8*2},0);
                 for (int i = l.Start; i < samples.Count && samples[i].ElapsedMs / 1000.0 <= l.MaxX; i++)
                 {
+                    if(Combined && !MatchesMotor(samples[i],a)) continue;
                     if (Value(samples[i], a) is null) { previous = null; continue; }
                     any = true; var p = Position(i, a, l);
                     if (previous is { } prior) context.DrawLine(pen, prior, p);
@@ -187,7 +197,7 @@ public sealed class TelemetryChart : Control
         {
             var p = Position(selected, selectedAxis, l); var s = samples[selected];
             context.DrawEllipse(Brushes.White, new Pen(Color(selectedAxis), 2.5), p, 5, 5);
-            var unit = Combined ? SeriesNames[selectedAxis]+", "+SeriesUnit(selectedAxis) : Channel switch { ChartChannel.Current => "А", ChartChannel.Sound => SoundUnit, ChartChannel.Vibration => "g · " + "XYZ"[selectedAxis], _ => "г" };
+            var unit = Combined ? $"M{selectedAxis/8+1} · "+SeriesNames[selectedAxis%8]+", "+SeriesUnit(selectedAxis) : Channel switch { ChartChannel.Current => "А", ChartChannel.Sound => SoundUnit, ChartChannel.Vibration => "g · " + "XYZ"[selectedAxis], _ => "г" };
             var text = $"№{s.Sequence} · {s.ElapsedMs / 1000.0:0.000} с\nГаз: {s.ThrottlePercent:0.#}%\n{(Combined ? SeriesValue(s,selectedAxis) : Value(s, selectedAxis)):0.000} {unit}";
             var width = Math.Min(240, area.Width); var height = Math.Min(64, area.Height);
             var x = p.X + 12 + width <= area.Right ? p.X + 12 : p.X - width - 12;
