@@ -5,8 +5,10 @@ using System.Text.Json;
 
 namespace PropTest.Infrastructure;
 
+public sealed record S3MotorState(int Pin, int Target, int Applied);
+
 public sealed record S3ControlState(string Version, int Pin, int Max, bool Armed, bool Ready,
-    int Target, int Applied, string Reason, bool Pending, string Slot, uint Uptime, string? Token);
+    int Target, int Applied, string Reason, bool Pending, string Slot, uint Uptime, string? Token, S3MotorState[]? Motors = null);
 
 /// <summary>Authenticated motor-check API, separate from sensor recording.</summary>
 public sealed class S3ControlClient : IDisposable
@@ -41,10 +43,13 @@ public sealed class S3ControlClient : IDisposable
                 ? "Пароль плати не підійшов. Це пароль PROpTEST, а не вашого роутера."
                 : await response.Content.ReadAsStringAsync(timeout.Token));
             var state = await response.Content.ReadFromJsonAsync<S3ControlState>(Json, timeout.Token) ?? throw new IOException("Порожня відповідь плати.");
-            if (!state.Version.StartsWith("S3-Connect 0.3.", StringComparison.Ordinal) || state.Pin != 14 || state.Max != 100
-                || state.Applied is < 0 or > 100 || state.Target is < 0 or > 100)
-                throw new IOException("Непідтримувана конфігурація плати. Потрібна S3-Connect 0.3, GPIO14, ліміт 10%.");
-            if (path == "/stop" && (state.Armed || state.Applied != 0 || state.Target != 0))
+            bool legacy = state.Version.StartsWith("S3-Connect 0.3.", StringComparison.Ordinal) && state.Pin == 14 && state.Motors is null;
+            bool four = state.Version.StartsWith("S3-Connect 0.4.", StringComparison.Ordinal) && state.Pin == 10
+                && state.Motors is {Length:4} && state.Motors.Select((m,i)=>m is not null && m.Pin==10+i && m.Target is >=0 and <=100 && m.Applied is >=0 and <=100).All(v=>v)
+                && state.Target==state.Motors[0].Target && state.Applied==state.Motors[0].Applied;
+            if ((!legacy && !four) || state.Max != 100 || state.Applied is <0 or >100 || state.Target is <0 or >100)
+                throw new IOException("Непідтримувана конфігурація плати. Очікуються GPIO10–13 (S3-Connect 0.4) або старий GPIO14 (0.3), ліміт 10%.");
+            if (path == "/stop" && (state.Armed || state.Applied != 0 || state.Target != 0 || state.Motors?.Any(m=>m.Target!=0 || m.Applied!=0)==true))
                 throw new IOException("Плата не підтвердила нульовий вихід після Stop.");
             return state;
         }

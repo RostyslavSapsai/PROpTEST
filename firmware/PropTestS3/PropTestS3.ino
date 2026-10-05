@@ -3,7 +3,7 @@
 #include <esp_system.h>
 #include <ESPmDNS.h>
 
-static const char *identity = "PT:S3:0.3";
+static const char *identity = "PT:S3:0.4";
 WiFiServer server(8768);
 WiFiClient client;
 String ssid, password;
@@ -36,7 +36,7 @@ void command(Stream &stream, const String &line, bool local) {
   if (line == "P") stream.println(identity);
   else if (line == "H") { stream.println("PONG"); networkStatus(stream); }
   else if (line == "I") {
-    stream.print("INFO|PROpTEST v2|S3-Connect " PROPTEST_VERSION "|NO_SENSORS|WEB_MOTOR_GPIO14_CAP10|");
+    stream.print("INFO|PROpTEST v2|S3-Connect " PROPTEST_VERSION "|NO_SENSORS|WEB_MOTORS_GPIO10_13_CAP10|");
     stream.print(wifiReady ? ssid : "WIFI_FAILED");
     stream.print('|'); stream.print(WiFi.softAPIP()); stream.println("|8768");
     // Credentials are available over the physical USB/UART link only.

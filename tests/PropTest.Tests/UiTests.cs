@@ -20,6 +20,25 @@ public class TestAppBuilder
 public sealed class UiTests
 {
     [AvaloniaFact]
+    public async Task TimeRangeUpdatesWhileTypingAndResetStaysAutomatic()
+    {
+        var chart=new TelemetryChart();
+        var bar=new ChartRangeBar(()=>[chart]);
+        var window=new Window {Content=bar};window.Show();
+        try {
+            bar.From.Text="2";bar.To.Text="100";
+            await Task.Delay(450);Dispatcher.UIThread.RunJobs();
+            Assert.Equal((2d,100d),chart.ViewRange);
+            bar.To.Text="1";await Task.Delay(450);Dispatcher.UIThread.RunJobs();
+            Assert.Equal((2d,100d),chart.ViewRange);
+            bar.To.Text="40";bar.RaiseEvent(new KeyEventArgs {RoutedEvent=InputElement.KeyDownEvent,Key=Key.Enter});
+            Assert.Equal((2d,40d),chart.ViewRange);
+            bar.To.Text="60";bar.Reset();await Task.Delay(450);Dispatcher.UIThread.RunJobs();
+            chart.Update([new Measurement(Guid.NewGuid(),1,20000,0,0,0)]);
+            Assert.Equal((0d,20d),chart.ViewRange);
+        } finally {window.Close();}
+    }
+    [AvaloniaFact]
     public async Task ExportUsesChosenDestinationAndPreservesSelectedRun()
     {
         var folder = Path.Combine(Path.GetTempPath(), "PropTestExport", Guid.NewGuid().ToString());

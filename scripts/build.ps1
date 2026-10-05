@@ -11,9 +11,9 @@ try {
     dotnet test PropTest.Engineering.sln -c Release --no-build
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
     if ($Publish) {
-        dotnet publish src/PropTest.Desktop/PropTest.Desktop.csproj -c Release -r win-x64 --self-contained true -p:RestoreLockedMode=true -o artifacts/windows-v2-desktop-049
+        dotnet publish src/PropTest.Desktop/PropTest.Desktop.csproj -c Release -r win-x64 --self-contained true -p:RestoreLockedMode=true -o artifacts/windows-v2-desktop-050
         if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
-        Write-Host 'Ready: artifacts/windows-v2-desktop-049/PropTest.Desktop.exe'
+        Write-Host 'Ready: artifacts/windows-v2-desktop-050/PropTest.Desktop.exe'
     }
 } finally { Pop-Location }
 

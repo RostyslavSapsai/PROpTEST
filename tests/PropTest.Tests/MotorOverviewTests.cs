@@ -23,11 +23,21 @@ public sealed class MotorOverviewTests
         var window=new MotorChartWindow(first,1,null,"SIM · два незалежні канали",()=>{},[first,second]); window.Show();
         try {
             Assert.Equal(110,window.Chart.LatestValue(0)); Assert.False(window.Chart.HasSeries(8));
-            window.GetLogicalDescendants().OfType<CheckBox>().Single(c=>c.Name=="MotorToggle1").IsChecked=true;
+            window.GetLogicalDescendants().OfType<Button>().Single(b=>b.Name=="SelectAllMotors").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             Assert.Equal(4,window.Chart.Samples.Count); Assert.Equal(230,window.Chart.LatestValue(8)); Assert.Equal(110,window.Chart.LatestValue(0));
             window.GetLogicalDescendants().OfType<CheckBox>().Single(c=>c.Name=="MotorToggle0").IsChecked=false;
             Assert.Equal(4,window.Chart.Samples.Count); Assert.Equal(1,window.Chart.LatestValue(1)); Assert.False(window.Chart.HasSeries(0)); Assert.True(window.Chart.HasSeries(8));
             Assert.False(window.Chart.HasSeries(14)); Assert.False(window.Chart.HasSeries(15));
+            void Click(string name)=>window.GetLogicalDescendants().OfType<Button>().Single(b=>b.Name==name).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Click("ToggleChartLayout");
+            Click("SelectAllMotors");
+            Assert.All(window.GetLogicalDescendants().OfType<Expander>().Where(e=>e.Name?.StartsWith("SeparateMotor")==true),e=>Assert.True(e.IsVisible));
+            Click("ResetMotorSelection");
+            Assert.All(window.GetLogicalDescendants().OfType<CheckBox>(),c=>Assert.False(c.IsChecked));
+            Assert.True(window.Chart.HasSeries(1));
+            Click("SelectAllMotors");Click("ToggleChartLayout");Click("MotorSeries1None");
+            Assert.False(window.Chart.VisibleSeries[8]);Assert.True(window.Chart.VisibleSeries[0]);
+            Click("MotorSeries1All");Assert.True(window.Chart.VisibleSeries[8]);
         } finally {window.Close();}
     }
     [AvaloniaFact]
@@ -76,11 +86,18 @@ public sealed class MotorOverviewTests
             vm.Stop(); main.RefreshCharts(); await Task.Delay(1700);
             Capture(main,"motors-stopped",1220,850);
             Capture(graph,"motor-compact",1000,720); Capture(graph,"motor-narrow",760,600); Capture(all,"motor-all",1000,720);
+            layout.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            all.GetLogicalDescendants().OfType<Button>().Single(b=>b.Name=="SelectAllMotors").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Capture(all,"separate-motors",1000,720);
+            Capture(all,"separate-narrow",760,600);
+            layout.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             var detail=overview.GetLogicalDescendants().OfType<Expander>().Single(e=>Equals(e.Header,"Мотор 1 · окремі графіки")); detail.IsExpanded=true;
             Capture(main,"motors-expanded",1220,1050);
             var embedded=overview.GetLogicalDescendants().OfType<MotorChartPanel>().Single();
             var scroll=overview.GetLogicalAncestors().OfType<ScrollViewer>().First();
             scroll.Offset=new Vector(0,embedded.Bounds.Y); Capture(main,"embedded-charts",1220,850);
+            overview.UpdateLegacy([],"",false);
+            Capture(main,"legend-no-data",1220,1000);
         } finally { foreach(var window in windows) window.Close(); main.Close(); }
     }
 }

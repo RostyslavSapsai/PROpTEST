@@ -6,7 +6,7 @@
 #include "BoardPage.h"
 
 #ifndef PROPTEST_VERSION
-#define PROPTEST_VERSION "0.3.0"
+#define PROPTEST_VERSION "0.4.0"
 #endif
 WebServer web(80);
 bool pendingBoot = false, updating = false, uploadOk = false;
@@ -28,9 +28,15 @@ bool authorized() {
 }
 String statusJson(bool includeToken = false) {
   auto s = motorSnapshot();
-  String json = "{\"version\":\"S3-Connect " PROPTEST_VERSION "\",\"pin\":14,\"max\":100,\"uptime\":" + String(millis());
+  String json = "{\"version\":\"S3-Connect " PROPTEST_VERSION "\",\"pin\":10,\"max\":100,\"uptime\":" + String(millis());
   json += ",\"armed\":" + String(s.armed ? "true" : "false") + ",\"ready\":" + String(s.ready ? "true" : "false");
-  json += ",\"target\":" + String(s.target) + ",\"applied\":" + String(s.applied);
+  json += ",\"target\":" + String(s.target[0]) + ",\"applied\":" + String(s.applied[0]);
+  json += ",\"motors\":[";
+  for (int i = 0; i < 4; i++) {
+    if (i) json += ",";
+    json += "{\"pin\":" + String(MOTOR_PINS[i]) + ",\"target\":" + String(s.target[i]) + ",\"applied\":" + String(s.applied[i]) + "}";
+  }
+  json += "]";
   json += ",\"reason\":\"" + String(s.reason) + "\",\"pending\":" + String(pendingBoot ? "true" : "false");
   json += ",\"slot\":\"" + String(esp_ota_get_running_partition()->label) + "\"";
   if (includeToken) json += ",\"token\":\"" + String(s.token) + "\"";
@@ -96,24 +102,28 @@ void boardWebBegin() {
   web.on("/arm", HTTP_POST, [] {
     if (!authorized()) return;
     auto s = motorSnapshot();
-    if (updating || restartAt || pendingBoot || !s.ready || s.armed || s.applied || millis() < 3000 || millis() - s.tick > 100) {
+    if (updating || restartAt || pendingBoot || !s.ready || s.armed || !motorOutputsZero(s) || millis() < 3000 || millis() - s.tick > 100) {
       reject("Плата ще не готова або тест уже активний."); return;
     }
     uint32_t token; do { token = esp_random(); } while (!token);
     portENTER_CRITICAL(&motorMux);
-    motor.armed = true; motor.target = 0; motor.started = motor.heartbeat = millis(); motor.token = token; motor.reason = "STOP";
+    motor.armed = true; for (auto &value : motor.target) value = 0; motor.started = motor.heartbeat = millis(); motor.token = token; motor.reason = "STOP";
     portEXIT_CRITICAL(&motorMux);
     sendStatus(true);
   });
   web.on("/gas", HTTP_POST, [] {
     if (!authorized()) return;
     if (!sessionValid()) { reject("Тест завершено. Підготуйте його повторно."); return; }
+    String channel = web.arg("motor");
+    if (channel.length() != 1 || channel[0] < '1' || channel[0] > '4') { motorStopped(); reject("Потрібен номер мотора 1–4.", 400); return; }
+    int index = channel[0] - '1';
     String value = web.arg("value");
     bool digits = value.length() > 0 && value.length() <= 3;
     for (unsigned n = 0; n < value.length(); n++) digits &= value[n] >= '0' && value[n] <= '9';
     if (!digits || value.toInt() > 100) { motorStopped(); reject("Дозволено лише від 0 до 10% газу.", 400); return; }
+    uint32_t sessionToken = strtoul(web.arg("token").c_str(), nullptr, 10);
     portENTER_CRITICAL(&motorMux);
-    if (motor.armed) { motor.target = value.toInt(); motor.heartbeat = millis(); }
+    if (motor.armed && sessionToken == motor.token && (uint32_t)(millis() - motor.heartbeat) < 1000 && (uint32_t)(millis() - motor.started) < 30000) { motor.target[index] = value.toInt(); motor.heartbeat = millis(); }
     portEXIT_CRITICAL(&motorMux); sendStatus();
   });
   web.on("/lease", HTTP_POST, [] {

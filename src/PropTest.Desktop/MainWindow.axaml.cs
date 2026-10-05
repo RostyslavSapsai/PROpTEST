@@ -9,18 +9,20 @@ public partial class MainWindow : Window
 {
     readonly DispatcherTimer timer;
     NetworkStatusWindow? networkWindow;
+    S3ControlWindow? motorControl;
     public ErrorWindow? ActiveError { get; private set; }
     public MainViewModel ViewModel { get; }
     public MainWindow() : this(new MainViewModel(autoConnect: true)) { }
     public MainWindow(MainViewModel vm)
     {
         InitializeComponent(); ViewModel = vm; DataContext = vm;
-        MotorsOverview.Stop = vm.Stop;
+        MotorsOverview.Stop = StopAll;
+        MotorsOverview.ControlRequested = OpenMotorControl;
         ChartRangeHost.Content = new ChartRangeBar(() => [ThrustChart, CurrentChart, VibrationChart, SoundChart]);
         ArchiveRangeHost.Content = new ChartRangeBar(() => [ArchiveThrust, ArchiveCurrent, ArchiveVibration, ArchiveSound]);
         timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         timer.Tick += async (_, _) => { RefreshCharts(); await ViewModel.CheckPortsAsync(); }; timer.Start();
-        Closed += (_, _) => { timer.Stop(); ActiveError?.Close(); networkWindow?.Close(); vm.Dispose(); };
+        Closed += (_, _) => { timer.Stop(); ActiveError?.Close(); networkWindow?.Close(); motorControl?.Close(); vm.Dispose(); };
     }
     public void RefreshCharts()
     {
@@ -42,16 +44,18 @@ public partial class MainWindow : Window
     public Window OpenChart(TelemetryChart chart)
     {
         bool live = chart == ThrustChart || chart == CurrentChart || chart == VibrationChart || chart == SoundChart;
-        var detail = new ChartWindow(chart, live, live ? ViewModel.SourceLabel : ViewModel.ArchiveSummary, ViewModel.Stop);
+        var detail = new ChartWindow(chart, live, live ? ViewModel.SourceLabel : ViewModel.ArchiveSummary, StopAll);
         detail.Show(this); return detail;
     }
     async void OnConnect(object? sender, RoutedEventArgs e) => await ViewModel.ConnectAsync();
-    async void OnOpenS3Control(object? sender, RoutedEventArgs e)
-    {
-        if (!ViewModel.CanOpenBoardWeb) return;
-        try { await new S3ControlWindow(ViewModel.BoardWebAddress, ViewModel.WifiPassword).ShowDialog(this); }
-        catch (Exception ex) { new ErrorWindow("Не вдалося відкрити керування платою: " + ex.Message).Show(this); }
+    Window OpenMotorControl(int motor) {
+        if(motorControl is not null){motorControl.SelectMotor(motor);motorControl.Activate();return motorControl;}
+        bool connected=ViewModel.CanOpenBoardWeb;
+        motorControl=new S3ControlWindow(connected?ViewModel.BoardWebAddress:"http://127.0.0.1/",connected?ViewModel.WifiPassword:"",motor:motor,requireFour:true,showGraphs:i=>MotorsOverview.OpenMotor(i));
+        motorControl.Closed+=(_,_)=>motorControl=null;motorControl.Show(this);return motorControl;
     }
+    void StopAll(){ViewModel.Stop();if(motorControl is {} control)_=control.StopAllAsync();}
+    void OnOpenS3Control(object? sender,RoutedEventArgs e)=>OpenMotorControl(0);
     async void OnCopyWifiPassword(object? sender, RoutedEventArgs e)
     {
         if (Clipboard is null || !ViewModel.HasWifiPassword) return;
@@ -81,7 +85,7 @@ public partial class MainWindow : Window
     async void OnConnectionHelp(object? sender, RoutedEventArgs e) => await new ConnectionHelpWindow().ShowDialog(this);
     void OnStart(object? sender, RoutedEventArgs e) => ViewModel.Start();
     void OnStartThrottle(object? sender, RoutedEventArgs e) { if (ViewModel.CanSetStartThrottle) ViewModel.Throttle = 6; }
-    void OnStop(object? sender, RoutedEventArgs e) => ViewModel.Stop();
+    void OnStop(object? sender, RoutedEventArgs e) => StopAll();
     void OnDisconnect(object? sender, RoutedEventArgs e) => ViewModel.Disconnect();
     void OnPorts(object? sender, RoutedEventArgs e) => ViewModel.ScanPorts();
     void OnBreak(object? sender, RoutedEventArgs e) => ViewModel.BreakLink();

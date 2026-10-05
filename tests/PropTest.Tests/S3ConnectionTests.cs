@@ -8,14 +8,16 @@ namespace PropTest.Tests;
 
 public sealed class S3ConnectionTests
 {
-    [Fact]
-    public void S3OtaRecognizedWithoutStartingFakeSensorRecording()
+    [Theory]
+    [InlineData("0.3")]
+    [InlineData("0.4")]
+    public void S3OtaRecognizedWithoutStartingFakeSensorRecording(string version)
     {
-        var wire = new Link { Identity = "PT:S3:0.3" };
+        var wire = new Link { Identity = "PT:S3:"+version };
         using var device = new SerialTestDevice(_ => wire, 100) { PortName = "TEST" };
         device.Connect();
         Assert.True(device.SupportsBoardWeb); Assert.True(device.SupportsHomeWifi);
-        Assert.False(device.CanRunTests); Assert.Contains("0.3.0", device.Name);
+        Assert.False(device.CanRunTests); Assert.Contains(version+".0", device.Name);
         Assert.Throws<InvalidOperationException>(() => device.Begin(Guid.NewGuid(), new("test", 200, 10, 30), 0));
         Assert.DoesNotContain("B", wire.Commands);
         device.Stop(); Assert.Equal("G", wire.Commands[^1]);

@@ -38,6 +38,7 @@ public sealed class SerialTestDevice(Func<string, ISerialConnection>? factory = 
     public bool UsesSoundEnvelope { get; private set; }
     public bool SupportsFineThrottle { get; private set; }
     public bool IsS3 { get; private set; }
+    string s3Version="0.1.0";
     public bool SupportsBoardWeb { get; private set; }
     public bool SupportsHomeWifi { get; private set; }
     public string HomeNetworkStatus { get; private set; } = "";
@@ -51,7 +52,7 @@ public sealed class SerialTestDevice(Func<string, ISerialConnection>? factory = 
     long lastPong, lastPing;
     public string ProtocolVersion => SupportsFineThrottle ? "2.2" : UsesSoundEnvelope ? "2.1" : HasWatchdog ? "2.0" : "1.0";
     public string PortName { get; set; } = "";
-    public string Name => IsS3 ? $"PROpTEST v2 · S3-Connect {(SupportsBoardWeb ? "0.3.0" : SupportsHomeWifi ? "0.2.0" : "0.1.0")} · {PortName}" : $"COM / {PortName} / PT:{(HasWatchdog ? $"{ProtocolVersion} / cap30 / thrust-polarity=-1 / sound={(UsesSoundEnvelope ? "mean50ms-P2P" : "instant-ADC")} ADC / HX historical inverse 0.0014577025 / nominal-ACS20A-A3 / MMA8452Q-8g-or-MPU6050-2g" : "1.0 / uncalibrated")}";
+    public string Name => IsS3 ? $"PROpTEST v2 · S3-Connect {s3Version} · {PortName}" : $"COM / {PortName} / PT:{(HasWatchdog ? $"{ProtocolVersion} / cap30 / thrust-polarity=-1 / sound={(UsesSoundEnvelope ? "mean50ms-P2P" : "instant-ADC")} ADC / HX historical inverse 0.0014577025 / nominal-ACS20A-A3 / MMA8452Q-8g-or-MPU6050-2g" : "1.0 / uncalibrated")}";
 
     public void Connect()
     {
@@ -71,9 +72,9 @@ public sealed class SerialTestDevice(Func<string, ISerialConnection>? factory = 
                 foreach (var line in decoder.Push(candidate.ReadAvailable()))
                 {
                     var identity = line.Trim();
-                    if (identity is "PT:S3:0.1" or "PT:S3:0.2" or "PT:S3:0.3")
+                    if (identity is "PT:S3:0.1" or "PT:S3:0.2" or "PT:S3:0.3" or "PT:S3:0.4")
                     {
-                        connection = candidate; IsS3 = true; SupportsBoardWeb = identity == "PT:S3:0.3"; SupportsHomeWifi = identity != "PT:S3:0.1"; decoder.Reset();
+                        connection = candidate; IsS3 = true; s3Version=identity[6..]+".0"; SupportsBoardWeb = identity is "PT:S3:0.3" or "PT:S3:0.4"; SupportsHomeWifi = identity != "PT:S3:0.1"; decoder.Reset();
                         lastPong = Environment.TickCount64; lastPing = 0;
                         candidate.WriteLine("I");
                         return;

@@ -1,7 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:PropTest.Desktop" xmlns:core="using:PropTest.Core" x:Class="PropTest.Desktop.MainWindow" x:DataType="local:MainViewModel" Title="PROpTEST v2 · Desktop 0.4.9" Width="1220" Height="850" MinWidth="960" MinHeight="680">
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:PropTest.Desktop" xmlns:core="using:PropTest.Core" x:Class="PropTest.Desktop.MainWindow" x:DataType="local:MainViewModel" Title="PROpTEST v2 · Desktop 0.5.0" Width="1220" Height="850" MinWidth="960" MinHeight="680">
  <Grid RowDefinitions="Auto,*,Auto" Margin="24">
   <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
-   <StackPanel><TextBlock Text="PROpTEST" FontSize="28" FontWeight="Bold"/><TextBlock Text="v2 · Desktop 0.4.9 · стенд тяги" Classes="muted"/></StackPanel>
+   <StackPanel><TextBlock Text="PROpTEST" FontSize="28" FontWeight="Bold"/><TextBlock Text="v2 · Desktop 0.5.0 · стенд тяги" Classes="muted"/></StackPanel>
    <Border Grid.Column="1" Background="#FFF1DA" CornerRadius="6" Padding="16,10" VerticalAlignment="Center"><TextBlock Text="{Binding SourceLabel}" Foreground="#85520C" FontWeight="SemiBold"/></Border>
   </Grid>
   <TabControl x:Name="Tabs" Grid.Row="1">
@@ -14,7 +14,7 @@
         <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="#24756A" FontWeight="SemiBold"/>
         <TextBlock Text="{Binding DeviceStatus}" Classes="muted" FontSize="12"/><TextBlock Text="{Binding SensorSummary}" IsVisible="{Binding HasSensorSummary}" TextWrapping="Wrap" Foreground="#A53F16" FontSize="12"/>
         <Button x:Name="ConnectButton" Content="{Binding ConnectionButtonText}" Click="OnConnect" IsEnabled="{Binding CanConnect}" HorizontalAlignment="Stretch"/>
-        <Button Content="Керування мотором" Click="OnOpenS3Control" IsVisible="{Binding CanOpenBoardWeb}" HorizontalAlignment="Stretch"/>
+        <Button Content="Керування моторами" Click="OnOpenS3Control" IsVisible="{Binding CanOpenBoardWeb}" HorizontalAlignment="Stretch"/>
         <Button x:Name="StartButton" Content="Почати тест" Classes="primary" Click="OnStart" IsEnabled="{Binding CanStart}" HorizontalAlignment="Stretch"/><Separator/>
         <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Заданий газ" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="{Binding ThrottleText}" FontSize="26" FontWeight="Bold"/></Grid>
         <Grid ColumnDefinitions="*,Auto"><NumericUpDown x:Name="ThrottleInput" TextAlignment="Left" VerticalContentAlignment="Center" Value="{Binding ThrottleEntry}" Minimum="0" Maximum="{Binding SliderMaximum}" Increment="0.1" FormatString="0.0" IsEnabled="{Binding IsRunning}"/><Button Grid.Column="1" Content="6%" Margin="6,0,0,0" Click="OnStartThrottle" IsEnabled="{Binding CanSetStartThrottle}" ToolTip.Tip="Перейти до 6% — спостереженого порогу запуску цього мотора. Газ задає команду ESC, а не оберти."/></Grid><Grid Height="110"><Slider HorizontalAlignment="Center" Width="64" x:Name="ThrottleSlider" Orientation="Vertical" Minimum="0" Maximum="{Binding SliderMaximum}" TickFrequency="{Binding SliderTickFrequency}" TickPlacement="Outside" IsSnapToTickEnabled="False" Value="{Binding Throttle}" IsEnabled="{Binding IsRunning}"/></Grid><CheckBox Content="Обмежувати газ" IsChecked="{Binding LimitEnabled}" IsEnabled="{Binding CanConfigure}"/><Grid ColumnDefinitions="*,140"><TextBlock Text="Ліміт, %" VerticalAlignment="Center"/><NumericUpDown Grid.Column="1" Value="{Binding Limit}" Minimum="1" Maximum="100" FormatString="0" IsEnabled="{Binding CanConfigure}"/></Grid>

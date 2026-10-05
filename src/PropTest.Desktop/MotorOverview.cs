@@ -22,17 +22,19 @@ public sealed class MotorOverview : UserControl
     readonly TextBlock totalCurrent=new(), totalSound=new();
     readonly TextBlock note = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = Brush.Parse("#596779") };
     string source = "";
+    public Func<int,Window>? ControlRequested { get; set; }
+    Window OpenControl(int motor)=>ControlRequested?.Invoke(motor)??OpenMotor(motor);
     public Action Stop { get; set; } = () => { };
     public IReadOnlyList<Measurement> MotorSamples(int motor) => charts[motor - 1][0].Samples;
     public MotorOverview()
     {
-        drawing = new DroneDrawing(OpenMotor) { Name = "DroneDiagram", Height = 340, VerticalAlignment = VerticalAlignment.Center };
+        drawing = new DroneDrawing(OpenControl) { Name = "DroneDiagram", Height = 340, VerticalAlignment = VerticalAlignment.Center };
         var grid = diagramGrid = new Grid { MaxWidth = 1400, HorizontalAlignment = HorizontalAlignment.Center, ColumnDefinitions = new ColumnDefinitions("160,*,160"), RowDefinitions = new RowDefinitions("*,*") };
         for (int i = 0; i < 4; i++) {
             int motor = i;
             var title = new Button { Content = $"Мотор {i+1}", MinHeight = 0, Height = 26, Padding = new Thickness(8,4), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Background = Brush.Parse("#F3F5F7"), BorderBrush = Brush.Parse("#DDE2E7"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5), Cursor = new Cursor(StandardCursorType.Hand), FontWeight = FontWeight.SemiBold };
-            ToolTip.SetTip(title, "Відкрити всі графіки мотора");
-            title.Click += (_, _) => OpenMotor(motor);
+            ToolTip.SetTip(title, "Керувати газом цього мотора");
+            title.Click += (_, _) => OpenControl(motor);
             var card = new StackPanel { Spacing = 3, Children = { title, states[i] } };
             var metrics = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto") };
             card.Children.Add(metrics);
@@ -49,6 +51,8 @@ public sealed class MotorOverview : UserControl
                 int slot=j switch {0=>0,2=>1,4=>2,_=>3};
                 Grid.SetColumn(button,slot%2); Grid.SetRow(button,slot/2); metrics.Children.Add(button);
             }
+            var graphs=new Button {Content="Графіки",Height=24,MinHeight=0,Padding=new(4,2),FontSize=11,HorizontalAlignment=HorizontalAlignment.Stretch,HorizontalContentAlignment=HorizontalAlignment.Center};
+            graphs.Click+=(_,_)=>OpenMotor(motor);card.Children.Add(graphs);
             var border = new Border { Margin = new Thickness(0,0,0,4), Child = card, BorderBrush = Brush.Parse("#DCE1E6"), BorderThickness = new Thickness(1), Background = Brushes.White, Padding = new Thickness(5), VerticalAlignment = VerticalAlignment.Center, CornerRadius = new CornerRadius(10) };
             border.Width=160;
             var view=new Viewbox { Child=border,Width=160,Stretch=Stretch.Uniform,VerticalAlignment=VerticalAlignment.Center }; cardViews.Add(view);
@@ -57,8 +61,7 @@ public sealed class MotorOverview : UserControl
 
         Grid.SetColumn(drawing, 1); Grid.SetRowSpan(drawing, 2); grid.Children.Add(drawing);
         Content = new StackPanel { Spacing = 12, Children = {
-            new TextBlock { Text = "Огляд чотирьох моторів", FontSize = 22, FontWeight = FontWeight.SemiBold },
-            new TextBlock { Text = "Показник → компактний графік · мотор → усі графіки · розгортання — кнопкою вікна", TextWrapping = TextWrapping.Wrap, FontSize = 12 },
+            ChartUi.Heading("Огляд чотирьох моторів", "Натисніть показник, щоб відкрити компактний графік. Натисніть мотор, щоб керувати його газом. Кнопка «Графіки» відкриває всі його показники. Розгорнути графіки можна стандартною кнопкою вікна.",22),
             new Border { Child = grid, Background = Brushes.White, Padding = new Thickness(8,24,8,8), CornerRadius = new CornerRadius(10) }, note
         }};
         var body=(StackPanel)Content!;
@@ -76,9 +79,9 @@ public sealed class MotorOverview : UserControl
             var panel=new StackPanel { Spacing=8 };
             panel.Children.Add(new ChartRangeBar(()=>charts[index].ToArray()));
             for(int c=0;c<4;c++) { if(c is 1 or 3)continue; int axis=c; var chart=charts[m][c]; chart.Height=220;
-                panel.Children.Add(new Expander { Header=new[]{"Тяга, г","Струм, А","Вібрація XYZ, g","Звук"}[c],Content=chart,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch });
+                panel.Children.Add(new Expander { Header=ChartUi.ChannelHeading(new[]{"Тяга, г","Струм, А","Вібрація XYZ, g","Звук"}[c],new[]{0,1,2,5}[c]),Content=chart,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch });
             }
-            foreach(var name in new[]{"Температура, °C","Оберти, RPM"}) panel.Children.Add(new Expander {Header=name,Content=new TextBlock {Text="Немає даних",Margin=new(12)},HorizontalAlignment=HorizontalAlignment.Stretch});
+            foreach(var name in new[]{"Температура, °C","Оберти, RPM"}) panel.Children.Add(new Expander {Header=ChartUi.ChannelHeading(name,name.StartsWith("Температура")?6:7),Content=new TextBlock {Text="Немає даних",Margin=new(12)},HorizontalAlignment=HorizontalAlignment.Stretch});
             motorDetails.Children.Add(new Expander { Header=$"Мотор {m+1} · окремі графіки",Content=panel,IsVisible=false,HorizontalAlignment=HorizontalAlignment.Stretch });
         }
         UpdateLegacy([], "", false);
